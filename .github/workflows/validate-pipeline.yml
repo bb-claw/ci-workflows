@@ -31,7 +31,7 @@ on:
 
 jobs:
   validate:
-    name: Validate Configuration & Environment
+    name: Validate Configuration
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -51,80 +51,75 @@ jobs:
 
           # Validate URLs
           if [ -z "$DEV_URL" ]; then
-            echo "❌ dev-url is empty"
+            echo "FAILED: dev-url is empty"
             FAILED=1
           else
-            echo "✅ dev-url: $DEV_URL"
+            echo "OK: dev-url set"
           fi
 
           if [ -z "$PROD_URL" ]; then
-            echo "❌ prod-url is empty"
+            echo "FAILED: prod-url is empty"
             FAILED=1
           else
-            echo "✅ prod-url: $PROD_URL"
+            echo "OK: prod-url set"
           fi
 
           # Validate service IDs
           if [ -z "$RAILWAY_SERVICE_ID_DEV" ]; then
-            echo "❌ railway-service-id-dev is empty"
+            echo "FAILED: railway-service-id-dev is empty"
             FAILED=1
           else
-            echo "✅ railway-service-id-dev: $RAILWAY_SERVICE_ID_DEV"
+            echo "OK: railway-service-id-dev set"
           fi
 
           if [ -z "$RAILWAY_SERVICE_ID_PROD" ]; then
-            echo "❌ railway-service-id-prod is empty"
+            echo "FAILED: railway-service-id-prod is empty"
             FAILED=1
           else
-            echo "✅ railway-service-id-prod: $RAILWAY_SERVICE_ID_PROD"
+            echo "OK: railway-service-id-prod set"
           fi
 
           # Validate tokens
           if [ -z "$RAILWAY_TOKEN_DEV" ]; then
-            echo "❌ RAILWAY_TOKEN_DEV secret is not set"
+            echo "FAILED: RAILWAY_TOKEN_DEV secret not set"
             FAILED=1
           else
-            echo "✅ RAILWAY_TOKEN_DEV is set"
+            echo "OK: RAILWAY_TOKEN_DEV set"
           fi
 
           if [ -z "$RAILWAY_TOKEN_PROD" ]; then
-            echo "❌ RAILWAY_TOKEN_PROD secret is not set"
+            echo "FAILED: RAILWAY_TOKEN_PROD secret not set"
             FAILED=1
           else
-            echo "✅ RAILWAY_TOKEN_PROD is set"
+            echo "OK: RAILWAY_TOKEN_PROD set"
           fi
 
           # Validate Dockerfile
           if [ ! -f "$DOCKERFILE" ]; then
-            echo "❌ Dockerfile not found at $DOCKERFILE"
+            echo "FAILED: Dockerfile not found at $DOCKERFILE"
             FAILED=1
           else
-            echo "✅ Dockerfile exists: $DOCKERFILE"
+            echo "OK: Dockerfile exists"
           fi
 
-          if [ $FAILED -eq 1 ]; then
-            echo ""
-            echo "❌ Validation failed"
+          if [ "$FAILED" -eq 1 ]; then
             exit 1
           fi
 
-          echo ""
-          echo "✅ All validations passed"
-
-      - name: Test URLs (best effort)
+      - name: Test URLs
         continue-on-error: true
         run: |
           DEV_URL="${{ inputs.dev-url }}"
           PROD_URL="${{ inputs.prod-url }}"
 
           if curl -sf --connect-timeout 5 "$DEV_URL/health" > /dev/null 2>&1; then
-            echo "✅ dev-url is responding"
+            echo "OK: dev-url responding"
           else
-            echo "⚠️  dev-url not responding yet (may be starting)"
+            echo "WARN: dev-url not responding (may be starting)"
           fi
 
           if curl -sf --connect-timeout 5 "$PROD_URL/health" > /dev/null 2>&1; then
-            echo "✅ prod-url is responding"
+            echo "OK: prod-url responding"
           else
-            echo "⚠️  prod-url not responding yet (may be starting)"
+            echo "WARN: prod-url not responding (may be starting)"
           fi
