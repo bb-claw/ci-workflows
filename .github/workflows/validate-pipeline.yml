@@ -38,15 +38,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate configuration
+        env:
+          DEV_URL: ${{ inputs.dev-url }}
+          PROD_URL: ${{ inputs.prod-url }}
+          RAILWAY_SERVICE_ID_DEV: ${{ inputs.railway-service-id-dev }}
+          RAILWAY_SERVICE_ID_PROD: ${{ inputs.railway-service-id-prod }}
+          DOCKERFILE: ${{ inputs.dockerfile }}
+          RAILWAY_TOKEN_DEV: ${{ secrets.RAILWAY_TOKEN_DEV }}
+          RAILWAY_TOKEN_PROD: ${{ secrets.RAILWAY_TOKEN_PROD }}
         run: |
-          DEV_URL="${{ inputs.dev-url }}"
-          PROD_URL="${{ inputs.prod-url }}"
-          RAILWAY_SERVICE_ID_DEV="${{ inputs.railway-service-id-dev }}"
-          RAILWAY_SERVICE_ID_PROD="${{ inputs.railway-service-id-prod }}"
-          DOCKERFILE="${{ inputs.dockerfile }}"
-          RAILWAY_TOKEN_DEV="${{ secrets.RAILWAY_TOKEN_DEV }}"
-          RAILWAY_TOKEN_PROD="${{ secrets.RAILWAY_TOKEN_PROD }}"
-
+          set -euo pipefail
           FAILED=0
 
           # Validate URLs
@@ -107,11 +108,11 @@ jobs:
           fi
 
       - name: Test URLs
+        env:
+          DEV_URL: ${{ inputs.dev-url }}
+          PROD_URL: ${{ inputs.prod-url }}
         continue-on-error: true
         run: |
-          DEV_URL="${{ inputs.dev-url }}"
-          PROD_URL="${{ inputs.prod-url }}"
-
           if curl -sf --connect-timeout 5 "$DEV_URL/health" > /dev/null 2>&1; then
             echo "OK: dev-url responding"
           else

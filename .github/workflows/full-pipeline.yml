@@ -67,7 +67,7 @@ on:
 # ── 0. VALIDATE PIPELINE ────────────────────────────────────────────────────────
 jobs:
   validate:
-    uses: bb-claw/ci-workflows/.github/workflows/validate-pipeline.yml@main
+    uses: bb-claw/ci-workflows/.github/workflows/validate-pipeline.yml@v1
     with:
       dev-url: ${{ inputs.dev-url }}
       prod-url: ${{ inputs.prod-url }}
