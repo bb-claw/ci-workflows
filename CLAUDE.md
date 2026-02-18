@@ -12,7 +12,7 @@ Service repos call reusable workflows from here instead of owning pipeline logic
 
 ---
 
-## Validation — no build system, YAML only
+## Validation
 
 ```bash
 # Validate all workflow YAML syntax (install: brew install actionlint)
@@ -21,11 +21,17 @@ actionlint .github/workflows/*.yml .github/actions/*/action.yml
 # Validate a single file
 actionlint .github/workflows/full-pipeline.yml
 
-# Check YAML is well-formed (actionlint also catches this, but quick sanity check)
-python3 -m py_compile <(python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" .github/workflows/full-pipeline.yml)
+# YAML lint (install: pip install yamllint)
+yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" .github/workflows/*.yml
 ```
 
-There are no unit tests for workflows. Functional testing requires a real GitHub Actions run — see **Testing changes** below.
+**CI runs automatically** on every push to feature branches and PRs to main (see `.github/workflows/ci.yml`). It checks:
+- actionlint (workflow syntax)
+- shellcheck (bash in composite actions)
+- yamllint (YAML validity)
+- doc-references (files mentioned in docs exist)
+
+Functional testing (actual workflow execution) requires a real service repo — see **Testing changes** below.
 
 ---
 
@@ -79,6 +85,7 @@ Breaking changes require a new major tag (`v2`) — service repos must manually 
     deploy-railway.yml
     smoke-test.yml
     integration-test.yml
+    ci.yml              ← CI for THIS repo (not reusable, runs on push/PR)
   actions/            ← composite actions (step-level, run on caller's runner)
     setup-railway/action.yml
     health-check/action.yml
@@ -276,7 +283,7 @@ Do not rename existing jobs without updating branch protection rules in all serv
 
 ## Common mistakes to avoid
 
-- **Do not use `WidthType.PERCENTAGE`** — not relevant here, but: do not use `workflow_run` trigger; it has complex ref-resolution behaviour that breaks in forks
+- **Do not use `workflow_run` trigger** — it has complex ref-resolution behaviour that breaks in forks
 - **Do not add `continue-on-error: true`** to any job in `full-pipeline.yml` — every job is a gate; silent failures defeat the purpose
 - **Do not cache Docker layers between different service repos** — the GHA cache is scoped per repo already, but do not try to share it cross-repo
 - **Do not use `latest` tag when referencing the built image in downstream jobs** — always use the digest. Tags are mutable; digests are not

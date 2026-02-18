@@ -1,0 +1,130 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ci.yml
+#
+# CI for the ci-workflows repo itself. Validates workflow syntax, shell scripts,
+# and documentation references before changes reach main.
+#
+# This is NOT a reusable workflow — it runs directly on this repo.
+# ─────────────────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Workflow syntax validation ─────────────────────────────────────────────
+  actionlint:
+    name: Lint Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install actionlint
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/rhysd/actionlint/releases/latest \
+            | jq -r '.assets[] | select(.name | contains("linux_amd64.tar.gz")) | .browser_download_url')
+          curl -sL "$DOWNLOAD_URL" | tar xz -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run actionlint
+        run: actionlint -color
+
+  # ── Shell script linting ───────────────────────────────────────────────────
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract and check shell scripts from composite actions
+        run: |
+          set -euo pipefail
+          EXIT_CODE=0
+
+          # Check inline shell scripts in composite actions
+          for action in .github/actions/*/action.yml; do
+            echo "Checking $action..."
+
+            # Extract bash run blocks and check them
+            # yq extracts run steps, shellcheck validates them
+            yq -r '.runs.steps[].run // empty' "$action" | while read -r script; do
+              if [[ -n "$script" ]]; then
+                echo "$script" | shellcheck -s bash -e SC2086 - || EXIT_CODE=1
+              fi
+            done
+          done
+
+          exit $EXIT_CODE
+
+  # ── YAML validity ──────────────────────────────────────────────────────────
+  yaml-lint:
+    name: YAML Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: |
+          yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" \
+            .github/workflows/*.yml \
+            .github/actions/*/action.yml
+
+  # ── Documentation references ───────────────────────────────────────────────
+  doc-references:
+    name: Check Doc References
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify referenced files exist
+        run: |
+          set -euo pipefail
+          EXIT_CODE=0
+
+          echo "Checking file references in documentation..."
+
+          # Files that should exist based on README.md structure section
+          EXPECTED_FILES=(
+            ".github/workflows/full-pipeline.yml"
+            ".github/workflows/node-ci.yml"
+            ".github/workflows/python-ci.yml"
+            ".github/workflows/docker-build-push.yml"
+            ".github/workflows/deploy-railway.yml"
+            ".github/workflows/smoke-test.yml"
+            ".github/workflows/integration-test.yml"
+            ".github/workflows/unit-test-container.yml"
+            ".github/actions/setup-railway/action.yml"
+            ".github/actions/health-check/action.yml"
+            ".github/actions/notify-slack/action.yml"
+            "templates/service-repo/.github/workflows/ci.yml"
+            "templates/service-repo/.github/workflows/cd.yml"
+            "docs/onboarding.md"
+            "docs/architecture.md"
+            "docs/troubleshooting.md"
+          )
+
+          for file in "${EXPECTED_FILES[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "❌ Missing: $file"
+              EXIT_CODE=1
+            else
+              echo "✓ Found: $file"
+            fi
+          done
+
+          if [[ $EXIT_CODE -eq 0 ]]; then
+            echo ""
+            echo "✅ All referenced files exist"
+          else
+            echo ""
+            echo "❌ Some referenced files are missing"
+          fi
+
+          exit $EXIT_CODE
