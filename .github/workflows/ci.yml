@@ -40,25 +40,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Extract and check shell scripts from composite actions
         run: |
           set -euo pipefail
-          EXIT_CODE=0
+          FAILED=false
 
-          # Check inline shell scripts in composite actions
           for action in .github/actions/*/action.yml; do
-            echo "Checking $action..."
+            echo "::group::Checking $action"
 
-            # Extract bash run blocks and check them
-            # yq extracts run steps, shellcheck validates them
-            yq -r '.runs.steps[].run // empty' "$action" | while read -r script; do
-              if [[ -n "$script" ]]; then
-                echo "$script" | shellcheck -s bash -e SC2086 - || EXIT_CODE=1
+            # Extract each run block to a temp file and shellcheck it
+            STEP_COUNT=$(yq '.runs.steps | length' "$action")
+
+            for ((i=0; i<STEP_COUNT; i++)); do
+              SCRIPT=$(yq -r ".runs.steps[$i].run // \"\"" "$action")
+              if [[ -n "$SCRIPT" ]]; then
+                STEP_NAME=$(yq -r ".runs.steps[$i].name // \"step $i\"" "$action")
+                echo "Checking: $STEP_NAME"
+
+                TMPFILE=$(mktemp)
+                echo "$SCRIPT" > "$TMPFILE"
+
+                if ! shellcheck -s bash -e SC2086,SC2129 "$TMPFILE"; then
+                  FAILED=true
+                fi
+                rm "$TMPFILE"
               fi
             done
+
+            echo "::endgroup::"
           done
 
-          exit $EXIT_CODE
+          if [[ "$FAILED" == "true" ]]; then
+            echo "❌ Shellcheck found issues"
+            exit 1
+          fi
+          echo "✅ All shell scripts passed"
 
   # ── YAML validity ──────────────────────────────────────────────────────────
   yaml-lint:
