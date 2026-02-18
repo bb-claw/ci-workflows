@@ -63,7 +63,8 @@ jobs:
                 echo "Checking: $STEP_NAME"
 
                 TMPFILE=$(mktemp)
-                echo "$SCRIPT" > "$TMPFILE"
+                # Replace ${{ ... }} with placeholder "GHACTION" so shellcheck can parse the bash
+                echo "$SCRIPT" | sed 's/\${{[^}]*}}/GHACTION/g' > "$TMPFILE"
 
                 if ! shellcheck -s bash -e SC2086,SC2129 "$TMPFILE"; then
                   FAILED=true
