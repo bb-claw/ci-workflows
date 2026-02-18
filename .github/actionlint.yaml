@@ -1,0 +1,15 @@
+# actionlint configuration
+# https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+self-hosted-runner:
+  labels: []
+
+config-variables: []
+
+# Ignore shellcheck codes that are false positives in GitHub Actions context:
+# - SC2086: Double quote to prevent globbing - ${{ }} expressions are pre-substituted by GitHub
+# - SC2129: Consider using { cmd1; cmd2; } >> file - style preference, not a bug
+shellcheck:
+  exclude:
+    - SC2086
+    - SC2129

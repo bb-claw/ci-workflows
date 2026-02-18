@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(/tmp/actionlint:*)"
+    ]
+  }
+}
