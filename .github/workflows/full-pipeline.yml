@@ -64,9 +64,23 @@ on:
       RAILWAY_TOKEN_PROD:
         required: true
 
-# ── 1. BUILD & PUSH ──────────────────────────────────────────────────────────
+# ── 0. VALIDATE PIPELINE ────────────────────────────────────────────────────────
 jobs:
+  validate:
+    uses: bb-claw/ci-workflows/.github/workflows/validate-pipeline.yml@v1
+    with:
+      dev-url: ${{ inputs.dev-url }}
+      prod-url: ${{ inputs.prod-url }}
+      railway-service-id-dev: ${{ inputs.railway-service-id-dev }}
+      railway-service-id-prod: ${{ inputs.railway-service-id-prod }}
+      dockerfile: ${{ inputs.dockerfile }}
+    secrets:
+      RAILWAY_TOKEN_DEV: ${{ secrets.RAILWAY_TOKEN_DEV }}
+      RAILWAY_TOKEN_PROD: ${{ secrets.RAILWAY_TOKEN_PROD }}
+
+# ── 1. BUILD & PUSH ──────────────────────────────────────────────────────────
   build:
+    needs: validate
     uses: bb-claw/ci-workflows/.github/workflows/docker-build-push.yml@v1
     with:
       dockerfile: ${{ inputs.dockerfile }}
