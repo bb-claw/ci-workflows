@@ -8,6 +8,8 @@
 # provides the runner environment, injects the target URL, and forwards
 # secrets via `secrets: inherit` from the caller.
 #
+# Supports npm, pnpm, and yarn via the package-manager input.
+#
 # Environment variables available to the test suite:
 #   API_BASE_URL   — base URL of the target environment
 #   NODE_ENV       — set to "test"
@@ -25,11 +27,15 @@ on:
       test-command:
         description: "Command to run integration tests"
         type: string
-        default: "npm run test:integration"
+        default: ""
       node-version:
         description: "Node.js version for test runner"
         type: string
         default: "22"
+      package-manager:
+        description: "Package manager to use: npm, pnpm, or yarn"
+        type: string
+        default: "npm"
       working-directory:
         description: "Working directory for the test command"
         type: string
@@ -49,22 +55,42 @@ jobs:
       - name: Checkout caller repository
         uses: actions/checkout@v4
 
+      - name: Enable corepack (for pnpm/yarn)
+        if: ${{ inputs.package-manager != 'npm' }}
+        run: corepack enable
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: "npm"
+          cache: ${{ inputs.package-manager }}
 
       - name: Install dependencies
         working-directory: ${{ inputs.working-directory }}
-        run: npm ci
+        run: |
+          case "${{ inputs.package-manager }}" in
+            npm)  npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            yarn) yarn install --frozen-lockfile ;;
+            *)    echo "Unknown package manager: ${{ inputs.package-manager }}" && exit 1 ;;
+          esac
 
       - name: Run integration tests
         working-directory: ${{ inputs.working-directory }}
         env:
           API_BASE_URL: ${{ inputs.api-base-url }}
           NODE_ENV: test
-        run: ${{ inputs.test-command }}
+        run: |
+          CMD="${{ inputs.test-command }}"
+          if [[ -z "$CMD" ]]; then
+            # Default based on package manager
+            case "${{ inputs.package-manager }}" in
+              npm)  CMD="npm run test:integration" ;;
+              pnpm) CMD="pnpm run test:integration" ;;
+              yarn) CMD="yarn test:integration" ;;
+            esac
+          fi
+          $CMD
 
       - name: Summary
         if: always()

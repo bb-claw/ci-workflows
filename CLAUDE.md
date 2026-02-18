@@ -148,9 +148,10 @@ Use this when modifying or calling workflows to get inputs/outputs exactly right
 | `railway-service-id-prod` | string | — | ✅ | Railway service ID for production |
 | `dockerfile` | string | `./Dockerfile` | | Path to Dockerfile |
 | `health-check-path` | string | `/health` | | Path for smoke tests |
-| `integration-test-command` | string | `npm run test:integration` | | Integration test command |
+| `integration-test-command` | string | (auto) | | Integration test command (defaults to `{pm} run test:integration`) |
 | `unit-test-command` | string | `npm test` | | Unit test command run inside container |
 | `node-version` | string | `22` | | Node.js version for integration test runner |
+| `package-manager` | string | `npm` | | Package manager: `npm`, `pnpm`, or `yarn` |
 
 Required secrets (forwarded from calling repo via `secrets: inherit`):  
 `RAILWAY_TOKEN_DEV`, `RAILWAY_TOKEN_PROD`
@@ -160,8 +161,9 @@ Required secrets (forwarded from calling repo via `secrets: inherit`):
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `node-version` | string | `22` | Node.js version |
-| `lint-command` | string | `npm run lint` | Lint command |
-| `test-command` | string | `npm test` | Unit test command |
+| `package-manager` | string | `npm` | Package manager: `npm`, `pnpm`, or `yarn` |
+| `lint-command` | string | (auto) | Lint command (defaults to `{pm} run lint`) |
+| `test-command` | string | (auto) | Unit test command (defaults to `{pm} test`) |
 | `build-enabled` | boolean | `true` | Set `false` on feature pushes to skip Docker build |
 | `dockerfile` | string | `./Dockerfile` | Path to Dockerfile |
 
@@ -229,8 +231,9 @@ Optional secret: `RAILWAY_TOKEN` (needed only when `rollback-on-failure: true`)
 | Input | Type | Default | Description |
 |---|---|---|---|
 | `api-base-url` | string | — | ✅ Injected as `API_BASE_URL` env var |
-| `test-command` | string | `npm run test:integration` | |
+| `test-command` | string | (auto) | Defaults to `{pm} run test:integration` |
 | `node-version` | string | `22` | |
+| `package-manager` | string | `npm` | Package manager: `npm`, `pnpm`, or `yarn` |
 | `working-directory` | string | `.` | |
 | `timeout-minutes` | number | `15` | |
 

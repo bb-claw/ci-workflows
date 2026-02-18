@@ -39,6 +39,30 @@ with:
   dockerfile: "./docker/Dockerfile"
 ```
 
+### Using pnpm or yarn instead of npm
+
+In `ci.yml`:
+```yaml
+jobs:
+  ci:
+    uses: bb-claw/ci-workflows/.github/workflows/node-ci.yml@v1
+    with:
+      package-manager: pnpm  # or yarn
+    secrets: inherit
+```
+
+In `cd.yml`:
+```yaml
+with:
+  package-manager: pnpm  # or yarn
+```
+
+The workflows automatically:
+- Enable corepack for pnpm/yarn
+- Use the correct install command (`pnpm install --frozen-lockfile`)
+- Use the correct cache
+- Default to the right test/lint commands
+
 ### Different health endpoint
 
 ```yaml
