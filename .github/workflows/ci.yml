@@ -92,6 +92,7 @@ jobs:
 
           # Files that should exist based on README.md structure section
           EXPECTED_FILES=(
+            ".github/workflows/ci.yml"
             ".github/workflows/full-pipeline.yml"
             ".github/workflows/node-ci.yml"
             ".github/workflows/python-ci.yml"
@@ -100,6 +101,7 @@ jobs:
             ".github/workflows/smoke-test.yml"
             ".github/workflows/integration-test.yml"
             ".github/workflows/unit-test-container.yml"
+            ".github/workflows/validate-pipeline.yml"
             ".github/actions/setup-railway/action.yml"
             ".github/actions/health-check/action.yml"
             ".github/actions/notify-slack/action.yml"
