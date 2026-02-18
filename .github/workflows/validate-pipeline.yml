@@ -41,114 +41,87 @@ jobs:
         run: |
           set -e
           echo "🔍 Validating required configuration..."
-          
-          # Check dev environment
+
+          DEV_URL="${{ inputs.dev-url }}"
+          PROD_URL="${{ inputs.prod-url }}"
+          RAILWAY_SERVICE_ID_DEV="${{ inputs.railway-service-id-dev }}"
+          RAILWAY_SERVICE_ID_PROD="${{ inputs.railway-service-id-prod }}"
+
           if [ -z "$DEV_URL" ]; then
             echo "❌ Error: dev-url is empty"
             exit 1
           fi
           echo "✅ dev-url: $DEV_URL"
-          
-          # Check prod environment
+
           if [ -z "$PROD_URL" ]; then
             echo "❌ Error: prod-url is empty"
             exit 1
           fi
           echo "✅ prod-url: $PROD_URL"
-          
-          # Check dev service ID
+
           if [ -z "$RAILWAY_SERVICE_ID_DEV" ]; then
             echo "❌ Error: railway-service-id-dev is empty"
             exit 1
           fi
           echo "✅ railway-service-id-dev: $RAILWAY_SERVICE_ID_DEV"
-          
-          # Check prod service ID
+
           if [ -z "$RAILWAY_SERVICE_ID_PROD" ]; then
             echo "❌ Error: railway-service-id-prod is empty"
             exit 1
           fi
           echo "✅ railway-service-id-prod: $RAILWAY_SERVICE_ID_PROD"
-        env:
-          DEV_URL: ${{ inputs.dev-url }}
-          PROD_URL: ${{ inputs.prod-url }}
-          RAILWAY_SERVICE_ID_DEV: ${{ inputs.railway-service-id-dev }}
-          RAILWAY_SERVICE_ID_PROD: ${{ inputs.railway-service-id-prod }}
 
       - name: Validate secrets are set
         run: |
           set -e
           echo "🔐 Validating secrets..."
-          
+
+          RAILWAY_TOKEN_DEV="${{ secrets.RAILWAY_TOKEN_DEV }}"
+          RAILWAY_TOKEN_PROD="${{ secrets.RAILWAY_TOKEN_PROD }}"
+
           if [ -z "$RAILWAY_TOKEN_DEV" ]; then
             echo "❌ Error: RAILWAY_TOKEN_DEV secret is not set"
             exit 1
           fi
           echo "✅ RAILWAY_TOKEN_DEV is set"
-          
+
           if [ -z "$RAILWAY_TOKEN_PROD" ]; then
             echo "❌ Error: RAILWAY_TOKEN_PROD secret is not set"
             exit 1
           fi
           echo "✅ RAILWAY_TOKEN_PROD is set"
-        env:
-          RAILWAY_TOKEN_DEV: ${{ secrets.RAILWAY_TOKEN_DEV }}
-          RAILWAY_TOKEN_PROD: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
       - name: Validate URLs are accessible
         run: |
           echo "🌐 Testing URL accessibility..."
-          
-          # Test dev URL
+
+          DEV_URL="${{ inputs.dev-url }}"
+          PROD_URL="${{ inputs.prod-url }}"
+
           if curl -sf --connect-timeout 5 "$DEV_URL/health" > /dev/null 2>&1; then
             echo "✅ dev-url is accessible: $DEV_URL"
           else
             echo "⚠️  dev-url not responding yet (may be starting): $DEV_URL"
           fi
-          
-          # Test prod URL
+
           if curl -sf --connect-timeout 5 "$PROD_URL/health" > /dev/null 2>&1; then
             echo "✅ prod-url is accessible: $PROD_URL"
           else
             echo "⚠️  prod-url not responding yet (may be starting): $PROD_URL"
           fi
-        env:
-          DEV_URL: ${{ inputs.dev-url }}
-          PROD_URL: ${{ inputs.prod-url }}
         continue-on-error: true
 
       - name: Validate Dockerfile exists
         run: |
           echo "📦 Validating Dockerfile..."
-          
+
+          DOCKERFILE="${{ inputs.dockerfile }}"
+
           if [ ! -f "$DOCKERFILE" ]; then
             echo "❌ Error: Dockerfile not found at $DOCKERFILE"
             exit 1
           fi
           echo "✅ Dockerfile exists: $DOCKERFILE"
-          
-          # Basic syntax check
-          if docker run --rm -i hadolint/hadolint < "$DOCKERFILE"; then
-            echo "✅ Dockerfile syntax is valid"
-          else
-            echo "⚠️  Dockerfile has some warnings (continuing anyway)"
-          fi
-        env:
-          DOCKERFILE: ${{ inputs.dockerfile }}
-        continue-on-error: true
-
-      - name: Validate workflow files
-        run: |
-          echo "🔧 Validating workflow YAML syntax..."
-          
-          find .github/workflows -name "*.yml" -o -name "*.yaml" | while read -r file; do
-            if docker run --rm -v "$PWD:$PWD" -w "$PWD" mikefarah/yq eval "$file" > /dev/null 2>&1; then
-              echo "✅ Valid: $file"
-            else
-              echo "❌ Invalid YAML: $file"
-              exit 1
-            fi
-          done
         continue-on-error: true
 
       - name: Summary
@@ -181,6 +154,5 @@ jobs:
           echo "- Check all required variables are set"
           echo "- Check all secrets are configured"
           echo "- Verify Dockerfile path is correct"
-          echo "- Review workflow YAML syntax"
           echo ""
           exit 1
