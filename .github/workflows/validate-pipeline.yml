@@ -37,122 +37,84 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate required variables
+      - name: Validate variables and secrets
         run: |
           set -e
+
           echo "🔍 Validating required configuration..."
-
-          DEV_URL="${{ inputs.dev-url }}"
-          PROD_URL="${{ inputs.prod-url }}"
-          RAILWAY_SERVICE_ID_DEV="${{ inputs.railway-service-id-dev }}"
-          RAILWAY_SERVICE_ID_PROD="${{ inputs.railway-service-id-prod }}"
-
-          if [ -z "$DEV_URL" ]; then
+          
+          # Validate dev-url
+          if [ -z "${{ inputs.dev-url }}" ]; then
             echo "❌ Error: dev-url is empty"
             exit 1
           fi
-          echo "✅ dev-url: $DEV_URL"
+          echo "✅ dev-url: ${{ inputs.dev-url }}"
 
-          if [ -z "$PROD_URL" ]; then
+          # Validate prod-url
+          if [ -z "${{ inputs.prod-url }}" ]; then
             echo "❌ Error: prod-url is empty"
             exit 1
           fi
-          echo "✅ prod-url: $PROD_URL"
+          echo "✅ prod-url: ${{ inputs.prod-url }}"
 
-          if [ -z "$RAILWAY_SERVICE_ID_DEV" ]; then
+          # Validate railway-service-id-dev
+          if [ -z "${{ inputs.railway-service-id-dev }}" ]; then
             echo "❌ Error: railway-service-id-dev is empty"
             exit 1
           fi
-          echo "✅ railway-service-id-dev: $RAILWAY_SERVICE_ID_DEV"
+          echo "✅ railway-service-id-dev: ${{ inputs.railway-service-id-dev }}"
 
-          if [ -z "$RAILWAY_SERVICE_ID_PROD" ]; then
+          # Validate railway-service-id-prod
+          if [ -z "${{ inputs.railway-service-id-prod }}" ]; then
             echo "❌ Error: railway-service-id-prod is empty"
             exit 1
           fi
-          echo "✅ railway-service-id-prod: $RAILWAY_SERVICE_ID_PROD"
+          echo "✅ railway-service-id-prod: ${{ inputs.railway-service-id-prod }}"
 
-      - name: Validate secrets are set
-        run: |
-          set -e
+          echo ""
           echo "🔐 Validating secrets..."
 
-          RAILWAY_TOKEN_DEV="${{ secrets.RAILWAY_TOKEN_DEV }}"
-          RAILWAY_TOKEN_PROD="${{ secrets.RAILWAY_TOKEN_PROD }}"
-
-          if [ -z "$RAILWAY_TOKEN_DEV" ]; then
+          # Validate Railway tokens
+          if [ -z "${{ secrets.RAILWAY_TOKEN_DEV }}" ]; then
             echo "❌ Error: RAILWAY_TOKEN_DEV secret is not set"
             exit 1
           fi
           echo "✅ RAILWAY_TOKEN_DEV is set"
 
-          if [ -z "$RAILWAY_TOKEN_PROD" ]; then
+          if [ -z "${{ secrets.RAILWAY_TOKEN_PROD }}" ]; then
             echo "❌ Error: RAILWAY_TOKEN_PROD secret is not set"
             exit 1
           fi
           echo "✅ RAILWAY_TOKEN_PROD is set"
 
-      - name: Validate URLs are accessible
+      - name: Validate Dockerfile
         run: |
-          echo "🌐 Testing URL accessibility..."
-
-          DEV_URL="${{ inputs.dev-url }}"
-          PROD_URL="${{ inputs.prod-url }}"
-
-          if curl -sf --connect-timeout 5 "$DEV_URL/health" > /dev/null 2>&1; then
-            echo "✅ dev-url is accessible: $DEV_URL"
-          else
-            echo "⚠️  dev-url not responding yet (may be starting): $DEV_URL"
-          fi
-
-          if curl -sf --connect-timeout 5 "$PROD_URL/health" > /dev/null 2>&1; then
-            echo "✅ prod-url is accessible: $PROD_URL"
-          else
-            echo "⚠️  prod-url not responding yet (may be starting): $PROD_URL"
-          fi
-        continue-on-error: true
-
-      - name: Validate Dockerfile exists
-        run: |
-          echo "📦 Validating Dockerfile..."
-
-          DOCKERFILE="${{ inputs.dockerfile }}"
-
-          if [ ! -f "$DOCKERFILE" ]; then
-            echo "❌ Error: Dockerfile not found at $DOCKERFILE"
+          if [ ! -f "${{ inputs.dockerfile }}" ]; then
+            echo "❌ Error: Dockerfile not found at ${{ inputs.dockerfile }}"
             exit 1
           fi
-          echo "✅ Dockerfile exists: $DOCKERFILE"
-        continue-on-error: true
+          echo "✅ Dockerfile exists: ${{ inputs.dockerfile }}"
 
-      - name: Summary
+      - name: Test URLs
+        continue-on-error: true
+        run: |
+          echo "🌐 Testing URL accessibility..."
+          if curl -sf --connect-timeout 5 "${{ inputs.dev-url }}/health" > /dev/null 2>&1; then
+            echo "✅ dev-url is accessible"
+          else
+            echo "⚠️  dev-url not responding yet (may be starting)"
+          fi
+
+          if curl -sf --connect-timeout 5 "${{ inputs.prod-url }}/health" > /dev/null 2>&1; then
+            echo "✅ prod-url is accessible"
+          else
+            echo "⚠️  prod-url not responding yet (may be starting)"
+          fi
+
+      - name: Validation Summary
         if: success()
         run: |
           echo ""
-          echo "════════════════════════════════════════"
-          echo "✅ Pipeline Validation Successful!"
-          echo "════════════════════════════════════════"
+          echo "✅ Pipeline validation passed!"
+          echo "Ready to proceed with build and deployment."
           echo ""
-          echo "Configuration Summary:"
-          echo "  Dev Environment:  ${{ inputs.dev-url }}"
-          echo "  Prod Environment: ${{ inputs.prod-url }}"
-          echo "  Dev Service ID:   ${{ inputs.railway-service-id-dev }}"
-          echo "  Prod Service ID:  ${{ inputs.railway-service-id-prod }}"
-          echo "  Dockerfile:       ${{ inputs.dockerfile }}"
-          echo ""
-          echo "Ready to proceed with build and deployment!"
-          echo ""
-
-      - name: Failure Summary
-        if: failure()
-        run: |
-          echo ""
-          echo "════════════════════════════════════════"
-          echo "❌ Pipeline Validation Failed!"
-          echo "════════════════════════════════════════"
-          echo ""
-          echo "Issues found:"
-          echo "- Check all required variables are set"
-          echo "- Check all secrets are configured"
-          echo "- Verify Dockerfile path is correct"
-          echo ""
-          exit 1
