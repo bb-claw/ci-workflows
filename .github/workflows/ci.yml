@@ -102,6 +102,8 @@ jobs:
             "docs/onboarding.md"
             "docs/architecture.md"
             "docs/troubleshooting.md"
+            "docs/runbook.md"
+            "docs/customization.md"
           )
 
           for file in "${EXPECTED_FILES[@]}"; do

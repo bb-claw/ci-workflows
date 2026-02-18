@@ -6,7 +6,9 @@
       "Bash(python3:*)",
       "Bash(/tmp/actionlint:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(pip install:*)",
+      "Bash(yamllint:*)"
     ]
   }
 }
