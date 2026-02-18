@@ -5,6 +5,8 @@
 # Runs on every push to feature branches (lint + unit-test only, fast feedback)
 # and on every PR to main (adds Dockerfile build validation).
 #
+# Supports npm, pnpm, and yarn via the package-manager input.
+#
 # Usage in a service repo (.github/workflows/ci.yml):
 #
 #   on:
@@ -15,6 +17,8 @@
 #   jobs:
 #     ci:
 #       uses: bb-claw/ci-workflows/.github/workflows/node-ci.yml@v1
+#       with:
+#         package-manager: pnpm  # optional, defaults to npm
 #       secrets: inherit
 # ─────────────────────────────────────────────────────────────────────────────
 name: Node.js CI
@@ -26,14 +30,18 @@ on:
         description: "Node.js version to use"
         type: string
         default: "22"
+      package-manager:
+        description: "Package manager to use: npm, pnpm, or yarn"
+        type: string
+        default: "npm"
       lint-command:
         description: "Command to run linting"
         type: string
-        default: "npm run lint"
+        default: ""
       test-command:
         description: "Command to run unit tests"
         type: string
-        default: "npm test"
+        default: ""
       build-enabled:
         description: "Whether to run the Docker build validation job. Set false on feature pushes for speed."
         type: boolean
@@ -51,16 +59,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Enable corepack (for pnpm/yarn)
+        if: ${{ inputs.package-manager != 'npm' }}
+        run: corepack enable
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: "npm"
+          cache: ${{ inputs.package-manager }}
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          case "${{ inputs.package-manager }}" in
+            npm)  npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            yarn) yarn install --frozen-lockfile ;;
+            *)    echo "Unknown package manager: ${{ inputs.package-manager }}" && exit 1 ;;
+          esac
 
       - name: Run linter
-        run: ${{ inputs.lint-command }}
+        run: |
+          CMD="${{ inputs.lint-command }}"
+          if [[ -z "$CMD" ]]; then
+            # Default based on package manager
+            case "${{ inputs.package-manager }}" in
+              npm)  CMD="npm run lint" ;;
+              pnpm) CMD="pnpm run lint" ;;
+              yarn) CMD="yarn lint" ;;
+            esac
+          fi
+          $CMD
 
   # ── Unit tests ────────────────────────────────────────────────────────────
   unit-test:
@@ -69,16 +97,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Enable corepack (for pnpm/yarn)
+        if: ${{ inputs.package-manager != 'npm' }}
+        run: corepack enable
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
-          cache: "npm"
+          cache: ${{ inputs.package-manager }}
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          case "${{ inputs.package-manager }}" in
+            npm)  npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            yarn) yarn install --frozen-lockfile ;;
+            *)    echo "Unknown package manager: ${{ inputs.package-manager }}" && exit 1 ;;
+          esac
 
       - name: Run unit tests
-        run: ${{ inputs.test-command }}
+        run: |
+          CMD="${{ inputs.test-command }}"
+          if [[ -z "$CMD" ]]; then
+            # Default based on package manager
+            case "${{ inputs.package-manager }}" in
+              npm)  CMD="npm test" ;;
+              pnpm) CMD="pnpm test" ;;
+              yarn) CMD="yarn test" ;;
+            esac
+          fi
+          $CMD
 
   # ── Docker build validation (PR only — push: false) ───────────────────────
   build-validate:
