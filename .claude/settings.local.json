@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(/tmp/actionlint:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(echo:*)",
+      "Bash(pip install:*)",
+      "Bash(yamllint:*)"
+    ]
+  }
+}

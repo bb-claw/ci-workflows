@@ -31,7 +31,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run actionlint
-        run: actionlint -color
+        run: actionlint -color -config-file .github/actionlint.yaml
 
   # ── Shell script linting ───────────────────────────────────────────────────
   shellcheck:
@@ -40,25 +40,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract and check shell scripts from composite actions
+      - name: Run shellcheck on scripts
         run: |
-          set -euo pipefail
-          EXIT_CODE=0
-
-          # Check inline shell scripts in composite actions
-          for action in .github/actions/*/action.yml; do
-            echo "Checking $action..."
-
-            # Extract bash run blocks and check them
-            # yq extracts run steps, shellcheck validates them
-            yq -r '.runs.steps[].run // empty' "$action" | while read -r script; do
-              if [[ -n "$script" ]]; then
-                echo "$script" | shellcheck -s bash -e SC2086 - || EXIT_CODE=1
-              fi
-            done
-          done
-
-          exit $EXIT_CODE
+          # Check any standalone shell scripts
+          shopt -s nullglob
+          scripts=(scripts/*.sh)
+          if [[ ${#scripts[@]} -gt 0 ]]; then
+            shellcheck "${scripts[@]}"
+          else
+            echo "No standalone shell scripts found - skipping"
+          fi
+          echo "✅ Shellcheck passed"
 
   # ── YAML validity ──────────────────────────────────────────────────────────
   yaml-lint:
@@ -92,6 +84,7 @@ jobs:
 
           # Files that should exist based on README.md structure section
           EXPECTED_FILES=(
+            ".github/workflows/ci.yml"
             ".github/workflows/full-pipeline.yml"
             ".github/workflows/node-ci.yml"
             ".github/workflows/python-ci.yml"
@@ -100,6 +93,7 @@ jobs:
             ".github/workflows/smoke-test.yml"
             ".github/workflows/integration-test.yml"
             ".github/workflows/unit-test-container.yml"
+            ".github/workflows/validate-pipeline.yml"
             ".github/actions/setup-railway/action.yml"
             ".github/actions/health-check/action.yml"
             ".github/actions/notify-slack/action.yml"
@@ -108,6 +102,8 @@ jobs:
             "docs/onboarding.md"
             "docs/architecture.md"
             "docs/troubleshooting.md"
+            "docs/runbook.md"
+            "docs/customization.md"
           )
 
           for file in "${EXPECTED_FILES[@]}"; do

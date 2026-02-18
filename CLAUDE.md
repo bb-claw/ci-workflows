@@ -104,6 +104,8 @@ docs/
   architecture.md
   troubleshooting.md
   secrets-reference.md
+  runbook.md              ← incident response and recovery procedures
+  customization.md        ← how to extend and customize pipelines
   pipeline-overview.html
   cicd-overview.html
 ```
