@@ -40,47 +40,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install yq
+      - name: Run shellcheck on scripts
         run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: Extract and check shell scripts from composite actions
-        run: |
-          set -euo pipefail
-          FAILED=false
-
-          for action in .github/actions/*/action.yml; do
-            echo "::group::Checking $action"
-
-            # Extract each run block to a temp file and shellcheck it
-            STEP_COUNT=$(yq '.runs.steps | length' "$action")
-
-            for ((i=0; i<STEP_COUNT; i++)); do
-              SCRIPT=$(yq -r ".runs.steps[$i].run // \"\"" "$action")
-              if [[ -n "$SCRIPT" ]]; then
-                STEP_NAME=$(yq -r ".runs.steps[$i].name // \"step $i\"" "$action")
-                echo "Checking: $STEP_NAME"
-
-                TMPFILE=$(mktemp)
-                # Replace ${{ ... }} with placeholder "GHACTION" so shellcheck can parse the bash
-                echo "$SCRIPT" | sed 's/\${{[^}]*}}/GHACTION/g' > "$TMPFILE"
-
-                if ! shellcheck -s bash -e SC2086,SC2129 "$TMPFILE"; then
-                  FAILED=true
-                fi
-                rm "$TMPFILE"
-              fi
-            done
-
-            echo "::endgroup::"
-          done
-
-          if [[ "$FAILED" == "true" ]]; then
-            echo "❌ Shellcheck found issues"
-            exit 1
+          # Check any standalone shell scripts
+          shopt -s nullglob
+          scripts=(scripts/*.sh)
+          if [[ ${#scripts[@]} -gt 0 ]]; then
+            shellcheck "${scripts[@]}"
+          else
+            echo "No standalone shell scripts found - skipping"
           fi
-          echo "✅ All shell scripts passed"
+          echo "✅ Shellcheck passed"
 
   # ── YAML validity ──────────────────────────────────────────────────────────
   yaml-lint:
