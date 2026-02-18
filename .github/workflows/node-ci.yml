@@ -1,0 +1,101 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# node-ci.yml
+#
+# CI template for Node.js service repos.
+# Runs on every push to feature branches (lint + unit-test only, fast feedback)
+# and on every PR to main (adds Dockerfile build validation).
+#
+# Usage in a service repo (.github/workflows/ci.yml):
+#
+#   on:
+#     push:
+#       branches-ignore: [main]
+#     pull_request:
+#       branches: [main]
+#   jobs:
+#     ci:
+#       uses: bb-claw/ci-workflows/.github/workflows/node-ci.yml@v1
+#       secrets: inherit
+# ─────────────────────────────────────────────────────────────────────────────
+name: Node.js CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version to use"
+        type: string
+        default: "22"
+      lint-command:
+        description: "Command to run linting"
+        type: string
+        default: "npm run lint"
+      test-command:
+        description: "Command to run unit tests"
+        type: string
+        default: "npm test"
+      build-enabled:
+        description: "Whether to run the Docker build validation job. Set false on feature pushes for speed."
+        type: boolean
+        default: true
+      dockerfile:
+        description: "Path to Dockerfile"
+        type: string
+        default: "./Dockerfile"
+
+jobs:
+  # ── Lint ──────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: ${{ inputs.lint-command }}
+
+  # ── Unit tests ────────────────────────────────────────────────────────────
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: ${{ inputs.test-command }}
+
+  # ── Docker build validation (PR only — push: false) ───────────────────────
+  build-validate:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    if: ${{ inputs.build-enabled }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push — validation only)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: validate-only:latest

@@ -1,0 +1,136 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# full-pipeline.yml
+#
+# Top-level CD orchestrator. This is the workflow service repos call.
+# Chains build → unit-test → deploy-dev → smoke-test → integration-test
+#           → deploy-prod → smoke-test-prod (rollback on failure)
+#
+# Usage in a service repo:
+#
+#   jobs:
+#     pipeline:
+#       uses: bb-claw/ci-workflows/.github/workflows/full-pipeline.yml@v1
+#       with:
+#         dev-url: ${{ vars.DEV_URL }}
+#         prod-url: ${{ vars.PROD_URL }}
+#         railway-service-id-dev: ${{ vars.RAILWAY_SERVICE_ID_DEV }}
+#         railway-service-id-prod: ${{ vars.RAILWAY_SERVICE_ID_PROD }}
+#       secrets: inherit
+# ─────────────────────────────────────────────────────────────────────────────
+name: Full CD Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      dev-url:
+        description: "Base URL of the dev Railway environment (e.g. https://app-dev.up.railway.app)"
+        type: string
+        required: true
+      prod-url:
+        description: "Base URL of the production Railway environment"
+        type: string
+        required: true
+      railway-service-id-dev:
+        description: "Railway service ID for the dev environment"
+        type: string
+        required: true
+      railway-service-id-prod:
+        description: "Railway service ID for the production environment"
+        type: string
+        required: true
+      dockerfile:
+        description: "Path to Dockerfile relative to repo root"
+        type: string
+        default: "./Dockerfile"
+      health-check-path:
+        description: "URL path used for smoke tests (default: /health)"
+        type: string
+        default: "/health"
+      integration-test-command:
+        description: "Shell command to run integration tests"
+        type: string
+        default: "npm run test:integration"
+      unit-test-command:
+        description: "Shell command to run unit tests inside the container"
+        type: string
+        default: "npm test"
+      node-version:
+        description: "Node.js version for integration test runner"
+        type: string
+        default: "22"
+    secrets:
+      RAILWAY_TOKEN_DEV:
+        required: true
+      RAILWAY_TOKEN_PROD:
+        required: true
+
+# ── 1. BUILD & PUSH ──────────────────────────────────────────────────────────
+jobs:
+  build:
+    uses: bb-claw/ci-workflows/.github/workflows/docker-build-push.yml@v1
+    with:
+      dockerfile: ${{ inputs.dockerfile }}
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+# ── 2. UNIT TEST (inside built container) ────────────────────────────────────
+  unit-test:
+    needs: build
+    uses: bb-claw/ci-workflows/.github/workflows/unit-test-container.yml@v1
+    with:
+      image: ${{ needs.build.outputs.image }}
+      digest: ${{ needs.build.outputs.digest }}
+      test-command: ${{ inputs.unit-test-command }}
+    secrets: inherit
+
+# ── 3. DEPLOY DEV ────────────────────────────────────────────────────────────
+  deploy-dev:
+    needs: [build, unit-test]
+    uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@v1
+    with:
+      service-id: ${{ inputs.railway-service-id-dev }}
+      environment: dev
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+
+# ── 4. SMOKE TEST — DEV ──────────────────────────────────────────────────────
+  smoke-test-dev:
+    needs: deploy-dev
+    uses: bb-claw/ci-workflows/.github/workflows/smoke-test.yml@v1
+    with:
+      url: ${{ inputs.dev-url }}
+      health-check-path: ${{ inputs.health-check-path }}
+
+# ── 5. INTEGRATION TESTS — vs DEV ────────────────────────────────────────────
+  integration-test:
+    needs: smoke-test-dev
+    uses: bb-claw/ci-workflows/.github/workflows/integration-test.yml@v1
+    with:
+      api-base-url: ${{ inputs.dev-url }}
+      test-command: ${{ inputs.integration-test-command }}
+      node-version: ${{ inputs.node-version }}
+    secrets: inherit
+
+# ── 6. DEPLOY PRODUCTION (automatic — tests are the gate) ────────────────────
+  deploy-prod:
+    needs: [build, integration-test]
+    uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@v1
+    with:
+      service-id: ${{ inputs.railway-service-id-prod }}
+      environment: production
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+
+# ── 7. SMOKE TEST — PROD (rollback on failure) ───────────────────────────────
+  smoke-test-prod:
+    needs: deploy-prod
+    uses: bb-claw/ci-workflows/.github/workflows/smoke-test.yml@v1
+    with:
+      url: ${{ inputs.prod-url }}
+      health-check-path: ${{ inputs.health-check-path }}
+      rollback-on-failure: true
+      service-id: ${{ inputs.railway-service-id-prod }}
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}

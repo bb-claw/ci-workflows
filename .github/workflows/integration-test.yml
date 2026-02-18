@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# integration-test.yml
+#
+# Checks out the calling repository's code and runs its integration test
+# suite against the live dev environment URL.
+#
+# The test suite lives in the service repo (not here). This workflow just
+# provides the runner environment, injects the target URL, and forwards
+# secrets via `secrets: inherit` from the caller.
+#
+# Environment variables available to the test suite:
+#   API_BASE_URL   — base URL of the target environment
+#   NODE_ENV       — set to "test"
+#   Any secrets inherited from the calling repo's environment
+# ─────────────────────────────────────────────────────────────────────────────
+name: Integration Tests
+
+on:
+  workflow_call:
+    inputs:
+      api-base-url:
+        description: "Base URL of the environment under test"
+        type: string
+        required: true
+      test-command:
+        description: "Command to run integration tests"
+        type: string
+        default: "npm run test:integration"
+      node-version:
+        description: "Node.js version for test runner"
+        type: string
+        default: "22"
+      working-directory:
+        description: "Working directory for the test command"
+        type: string
+        default: "."
+      timeout-minutes:
+        description: "Maximum minutes to allow for the test run"
+        type: number
+        default: 15
+
+jobs:
+  integration-test:
+    name: Integration Tests vs ${{ inputs.api-base-url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: npm ci
+
+      - name: Run integration tests
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          API_BASE_URL: ${{ inputs.api-base-url }}
+          NODE_ENV: test
+        run: ${{ inputs.test-command }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Integration Tests" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target** | \`${{ inputs.api-base-url }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Command** | \`${{ inputs.test-command }}\` |" >> $GITHUB_STEP_SUMMARY

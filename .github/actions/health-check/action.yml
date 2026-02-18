@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# actions/health-check/action.yml
+#
+# Composite action: curl-based HTTP health check with configurable retry loop.
+# Exits 0 on success, exits 1 after exhausting all retries.
+#
+# Usage in a workflow step:
+#   - uses: bb-claw/ci-workflows/.github/actions/health-check@v1
+#     with:
+#       url: https://my-service.up.railway.app/health
+# ─────────────────────────────────────────────────────────────────────────────
+name: HTTP Health Check
+description: Checks a URL with retries. Fails after max-retries exhausted.
+
+inputs:
+  url:
+    description: "Full URL to check (including path)"
+    required: true
+  expected-status:
+    description: "Expected HTTP status code"
+    required: false
+    default: "200"
+  max-retries:
+    description: "Maximum number of retry attempts"
+    required: false
+    default: "15"
+  retry-interval:
+    description: "Seconds between retries"
+    required: false
+    default: "10"
+  timeout:
+    description: "Per-request timeout in seconds"
+    required: false
+    default: "10"
+
+outputs:
+  status:
+    description: "Final HTTP status code"
+    value: ${{ steps.check.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run health check
+      id: check
+      shell: bash
+      run: |
+        URL="${{ inputs.url }}"
+        MAX=${{ inputs.max-retries }}
+        INTERVAL=${{ inputs.retry-interval }}
+        EXPECTED=${{ inputs.expected-status }}
+        TIMEOUT=${{ inputs.timeout }}
+
+        echo "🩺 Health check: $URL"
+        echo "   Expected status: $EXPECTED | Max retries: $MAX | Interval: ${INTERVAL}s"
+
+        for i in $(seq 1 $MAX); do
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time $TIMEOUT \
+            --connect-timeout 5 \
+            "$URL" 2>/dev/null || echo "000")
+
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+          if [ "$STATUS" = "$EXPECTED" ]; then
+            echo "✅ Attempt $i: HTTP $STATUS — OK"
+            exit 0
+          fi
+
+          echo "⏳ Attempt $i/$MAX: HTTP $STATUS — waiting ${INTERVAL}s..."
+          sleep $INTERVAL
+        done
+
+        echo "❌ Health check failed after $MAX attempts"
+        exit 1

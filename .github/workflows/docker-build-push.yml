@@ -1,0 +1,110 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# docker-build-push.yml
+#
+# Builds a Docker image using Buildx, pushes it to ghcr.io, and outputs
+# the immutable sha256 digest for downstream jobs to pin against.
+#
+# Outputs:
+#   image   — full image name (e.g. ghcr.io/bb-claw/my-service)
+#   digest  — sha256 digest (e.g. sha256:a1b2c3...)
+#   tags    — comma-separated list of applied tags
+#
+# The image is pushed ONCE. All downstream jobs reference the same digest.
+# Shared GHA cache keeps repeat builds fast on unchanged layers.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Docker Build & Push
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        description: "Path to Dockerfile"
+        type: string
+        default: "./Dockerfile"
+      context:
+        description: "Docker build context path"
+        type: string
+        default: "."
+      build-args:
+        description: "Newline-separated Docker build args (KEY=VALUE)"
+        type: string
+        default: ""
+      platforms:
+        description: "Target platforms for multi-arch build"
+        type: string
+        default: "linux/amd64"
+    outputs:
+      image:
+        description: "Full image name without tag (ghcr.io/org/repo)"
+        value: ${{ jobs.build.outputs.image }}
+      digest:
+        description: "Immutable image digest (sha256:...)"
+        value: ${{ jobs.build.outputs.digest }}
+      tags:
+        description: "All tags applied to the image"
+        value: ${{ jobs.build.outputs.tags }}
+
+jobs:
+  build:
+    name: Build & Push to ghcr.io
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image-name.outputs.image }}
+      digest: ${{ steps.build-push.outputs.digest }}
+      tags: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Derive lowercase image name from repo (ghcr.io requires lowercase)
+      - name: Compute image name
+        id: image-name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Generate tags: sha-<short-commit> + latest
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image-name.outputs.image }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push image
+        id: build-push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ inputs.build-args }}
+          # GitHub Actions cache — speeds up repeat builds significantly
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "## Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image** | \`${{ steps.image-name.outputs.image }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Digest** | \`${{ steps.build-push.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Tags** | \`${{ steps.meta.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY

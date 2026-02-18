@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .dockerignore — keep build context lean
+#
+# Copy this to your service repo root as `.dockerignore`
+# Exclude everything that doesn't need to be inside the image.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# CI/CD — never needed inside the image
+.github
+
+# Dev tooling and editor config
+.editorconfig
+.eslintrc*
+.eslintignore
+.prettierrc*
+.ruff.toml
+pyproject.toml
+*.code-workspace
+.vscode
+.idea
+
+# Test files — not needed in production image
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+tests/
+test/
+__tests__/
+pytest.ini
+jest.config.*
+
+# Build artifacts that get regenerated inside the image
+node_modules
+dist
+build
+.next
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Local environment files — secrets must NEVER go in images
+.env
+.env.*
+!.env.example
+
+# Docs and misc
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+docs/
+
+# OS noise
+.DS_Store
+Thumbs.db

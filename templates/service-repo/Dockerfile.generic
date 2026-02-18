@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Dockerfile — generic / minimal template
+#
+# Use this as a starting point when the other language-specific templates
+# don't fit (e.g. Go, Rust, static sites served by nginx, etc.).
+#
+# Pattern shown: Go multi-stage build producing a minimal scratch image.
+# Swap Stage 1 for your language's build toolchain.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ARG PORT=8080
+
+# ── Stage 1: build ────────────────────────────────────────────────────────────
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server ./cmd/server
+
+# ── Stage 2: minimal runner ───────────────────────────────────────────────────
+# Use `gcr.io/distroless/static-debian12` instead of scratch
+# if you need CA certificates or timezone data.
+FROM scratch AS runner
+
+WORKDIR /app
+
+COPY --from=builder /app/server ./server
+
+ARG PORT=8080
+ENV PORT=${PORT}
+
+EXPOSE ${PORT}
+
+# Health check — adjust path/tool to what's available in your base image
+# scratch has no shell, so skip HEALTHCHECK here and rely on smoke-test.yml
+# For distroless: CMD ["/app/server"]
+
+CMD ["/app/server"]

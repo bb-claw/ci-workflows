@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# deploy-railway.yml
+#
+# Triggers a Railway service redeployment. Railway pulls the latest image
+# from ghcr.io (the same digest built by docker-build-push.yml).
+#
+# Prerequisites:
+#   - Railway service must be configured to use a Docker image source
+#     pointing to ghcr.io/bb-claw/<service-name>
+#   - RAILWAY_TOKEN secret must be scoped to the correct project + environment
+#
+# Inputs:
+#   service-id    — Railway service ID (from Railway dashboard → service settings)
+#   environment   — GitHub environment name ("dev" or "production")
+# ─────────────────────────────────────────────────────────────────────────────
+name: Deploy to Railway
+
+on:
+  workflow_call:
+    inputs:
+      service-id:
+        description: "Railway service ID"
+        type: string
+        required: true
+      environment:
+        description: "GitHub environment name (dev | production)"
+        type: string
+        required: true
+    secrets:
+      RAILWAY_TOKEN:
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy → Railway (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - name: Install Railway CLI
+        uses: bb-claw/ci-workflows/.github/actions/setup-railway@v1
+
+      - name: Trigger redeployment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway redeploy \
+            --service "${{ inputs.service-id }}" \
+            --yes
+
+      - name: Summary
+        run: |
+          echo "## Railway Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Service ID** | \`${{ inputs.service-id }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ✅ Redeployment triggered |" >> $GITHUB_STEP_SUMMARY

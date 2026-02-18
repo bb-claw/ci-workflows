@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>bb-claw / CI·CD Framework</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0d12; }
+    pre, code { font-family: 'Courier New', monospace; }
+    ::-webkit-scrollbar { height: 4px; width: 4px; }
+    ::-webkit-scrollbar-track { background: #111620; }
+    ::-webkit-scrollbar-thumb { background: #2a3548; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
+
+    const theme = {
+      bg: "#0a0d12", surface: "#111620", border: "#1e2535", borderLight: "#2a3548",
+      accent: "#3b82f6", accentGlow: "#3b82f630", green: "#22c55e", greenGlow: "#22c55e25",
+      amber: "#f59e0b", amberGlow: "#f59e0b25", red: "#ef4444", purple: "#a78bfa",
+      purpleGlow: "#a78bfa25", cyan: "#06b6d4", cyanGlow: "#06b6d425", muted: "#4a5568",
+      text: "#e2e8f0", textDim: "#94a3b8", textFaint: "#4a5568",
+    };
+
+    const Tag = ({ color = theme.accent, children }) => (
+      <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 4,
+        padding: "1px 7px", fontSize: 10, fontFamily: "monospace", fontWeight: 600, letterSpacing: "0.05em" }}>
+        {children}
+      </span>
+    );
+
+    const Badge = ({ label, color }) => (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: color + "18", color,
+        border: `1px solid ${color}33`, borderRadius: 20, padding: "2px 10px",
+        fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        {label}
+      </span>
+    );
+
+    const Arrow = () => (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center",
+        width: 24, color: theme.muted, fontSize: 14, flexShrink: 0 }}>→</div>
+    );
+
+    const RepoCard = ({ name, color, desc, items = [] }) => (
+      <div style={{ background: theme.surface, border: `1px solid ${color}44`, borderRadius: 10,
+        padding: "14px 16px", boxShadow: `0 0 20px ${color}12`, flex: 1, minWidth: 160 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 14 }}>📦</span>
+          <span style={{ color: theme.text, fontFamily: "monospace", fontSize: 11, fontWeight: 700 }}>{name}</span>
+        </div>
+        <div style={{ color: theme.textDim, fontSize: 11, marginBottom: 8 }}>{desc}</div>
+        {items.map((item, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 10, color: theme.textDim, marginBottom: 3 }}>
+            <span style={{ color, marginTop: 1, flexShrink: 0 }}>▸</span>
+            <span style={{ fontFamily: "monospace" }}>{item}</span>
+          </div>
+        ))}
+      </div>
+    );
+
+    const Job = ({ icon, title, subtitle, color, tags = [], tests = [] }) => (
+      <div style={{ background: theme.surface, border: `1px solid ${color}55`, borderRadius: 8,
+        padding: "10px 12px", boxShadow: `0 0 14px ${color}15`, minWidth: 130, maxWidth: 160, flexShrink: 0 }}>
+        <div style={{ fontSize: 18, marginBottom: 4 }}>{icon}</div>
+        <div style={{ color: theme.text, fontWeight: 700, fontSize: 11, marginBottom: 2 }}>{title}</div>
+        <div style={{ color: theme.textDim, fontSize: 10, marginBottom: 6 }}>{subtitle}</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: tags.length && tests.length ? 5 : 0 }}>
+          {tags.map((t, i) => <Tag key={i} color={color}>{t}</Tag>)}
+        </div>
+        {tests.map((t, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
+            <span style={{ color: theme.green, fontSize: 9 }}>✓</span>
+            <span style={{ color: theme.textDim, fontSize: 9 }}>{t}</span>
+          </div>
+        ))}
+      </div>
+    );
+
+    const Gate = () => (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, flexShrink: 0 }}>
+        <div style={{ background: theme.amberGlow, border: `1px solid ${theme.amber}66`, borderRadius: 6,
+          padding: "6px 10px", color: theme.amber, fontSize: 10, fontWeight: 700, textAlign: "center", whiteSpace: "nowrap" }}>
+          <div>🔐</div><div>Manual</div><div>Approval</div>
+        </div>
+      </div>
+    );
+
+    const WorkflowCard = ({ file, trigger, desc, jobs, color }) => (
+      <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10,
+        padding: "14px 16px", borderLeft: `3px solid ${color}` }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6, gap: 8 }}>
+          <code style={{ color, fontSize: 11, fontWeight: 700, wordBreak: "break-all" }}>{file}</code>
+          <Badge label={trigger} color={color} />
+        </div>
+        <div style={{ color: theme.textDim, fontSize: 11, marginBottom: 10 }}>{desc}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {jobs.map((job, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: theme.bg, borderRadius: 6, padding: "7px 10px" }}>
+              <span style={{ fontSize: 12, flexShrink: 0 }}>{job.icon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: theme.text, fontSize: 10, fontWeight: 700 }}>{job.name}</div>
+                <div style={{ color: theme.textDim, fontSize: 10, wordBreak: "break-word" }}>{job.detail}</div>
+              </div>
+              <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {(job.tags || []).map((t, j) => <Tag key={j} color={color}>{t}</Tag>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
+    const tabs = ["Org Structure", "CI (PR)", "CD (main)", "Workflows", "Secrets"];
+
+    function App() {
+      const [activeTab, setActiveTab] = useState(0);
+
+      return (
+        <div style={{ background: theme.bg, minHeight: "100vh", fontFamily: "'Courier New', monospace",
+          color: theme.text, padding: "20px 16px" }}>
+
+          {/* Header */}
+          <div style={{ marginBottom: 20, borderBottom: `1px solid ${theme.border}`, paddingBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                background: `linear-gradient(135deg, ${theme.accent}, ${theme.purple})`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 15, boxShadow: `0 0 20px ${theme.accent}44` }}>⚡</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: "-0.02em", color: theme.text }}>
+                  bb-claw / CI·CD Framework
+                </div>
+                <div style={{ fontSize: 10, color: theme.textDim }}>
+                  Centralized build · test · deploy
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap" }}>
+            {tabs.map((tab, i) => (
+              <button key={i} onClick={() => setActiveTab(i)} style={{
+                background: activeTab === i ? theme.accent : "transparent",
+                color: activeTab === i ? "#fff" : theme.textDim,
+                border: `1px solid ${activeTab === i ? theme.accent : theme.border}`,
+                borderRadius: 6, padding: "6px 12px", fontSize: 10, fontFamily: "monospace",
+                fontWeight: 700, cursor: "pointer", letterSpacing: "0.04em" }}>
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* ── TAB 0: ORG STRUCTURE ── */}
+          {activeTab === 0 && (
+            <div>
+              <div style={{ color: theme.textDim, fontSize: 11, marginBottom: 16, lineHeight: 1.6 }}>
+                All repos live under <code style={{ color: theme.accent }}>bb-claw</code>. One central repo owns all shared workflows.
+                Service repos consume them with a single thin caller file.
+              </div>
+
+              {/* Central repo */}
+              <div style={{ background: `linear-gradient(135deg, ${theme.accent}18, ${theme.purple}12)`,
+                border: `1px solid ${theme.accent}55`, borderRadius: 12, padding: "14px 16px", marginBottom: 16,
+                boxShadow: `0 0 30px ${theme.accent}18` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 18 }}>🏛️</span>
+                  <div>
+                    <code style={{ color: theme.accent, fontWeight: 900, fontSize: 13 }}>bb-claw / ci-workflows</code>
+                    <div style={{ color: theme.textDim, fontSize: 10, marginTop: 2 }}>
+                      Central framework · versioned with semantic tags
+                    </div>
+                  </div>
+                  <Badge label="SHARED" color={theme.accent} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    { path: ".github/workflows/", items: ["docker-build-push.yml", "deploy-railway.yml", "smoke-test.yml", "integration-test.yml", "full-pipeline.yml", "node-ci.yml / python-ci.yml"] },
+                    { path: ".github/actions/", items: ["setup-railway/action.yml", "health-check/action.yml", "notify-slack/action.yml"] },
+                    { path: "docs/", items: ["onboarding.md", "troubleshooting.md", "CHANGELOG.md"] },
+                  ].map((section, i) => (
+                    <div key={i} style={{ background: theme.bg, borderRadius: 8, padding: "10px 12px" }}>
+                      <code style={{ color: theme.purple, fontSize: 10, display: "block", marginBottom: 6 }}>{section.path}</code>
+                      {section.items.map((item, j) => (
+                        <div key={j} style={{ color: theme.textDim, fontSize: 10, padding: "2px 0", display: "flex", gap: 6 }}>
+                          <span style={{ color: theme.accent }}>▸</span>{item}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center", color: theme.muted, fontSize: 11, marginBottom: 14 }}>
+                ↓ <code style={{ color: theme.accent, fontSize: 10 }}>uses: bb-claw/ci-workflows/...@v1</code>
+              </div>
+
+              {/* Service repos */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {[
+                  { name: "openclaw-railway-template", color: theme.green, desc: "Railway template service", items: [".github/workflows/ci.yml", ".github/workflows/cd.yml", "Dockerfile"] },
+                  { name: "nextcloud-cloud", color: theme.cyan, desc: "Nextcloud deployment", items: [".github/workflows/ci.yml", ".github/workflows/cd.yml", "Dockerfile"] },
+                  { name: "your-next-service", color: theme.purple, desc: "Future service repo", items: [".github/workflows/ci.yml", ".github/workflows/cd.yml", "Dockerfile"] },
+                ].map((repo, i) => (
+                  <RepoCard key={i} name={repo.name} color={repo.color} desc={repo.desc} items={repo.items} />
+                ))}
+              </div>
+
+              {/* Caller example */}
+              <div style={{ marginTop: 16, background: theme.surface, borderRadius: 10, padding: "14px 16px", border: `1px solid ${theme.border}` }}>
+                <div style={{ color: theme.textDim, fontSize: 10, marginBottom: 8 }}>
+                  📄 Caller file in every service repo — ALL that's needed:
+                </div>
+                <pre style={{ color: theme.green, fontSize: 9, margin: 0, lineHeight: 1.8, overflowX: "auto" }}>{`# .github/workflows/cd.yml
+name: CD
+on:
+  push:
+    branches: [main]
+
+jobs:
+  pipeline:
+    uses: bb-claw/ci-workflows/
+      .github/workflows/full-pipeline.yml@v1
+    with:
+      dev-url: \${{ vars.DEV_URL }}
+      prod-url: \${{ vars.PROD_URL }}
+      railway-service-id: \${{ vars.RAILWAY_SERVICE_ID }}
+    secrets: inherit`}</pre>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 1: CI PIPELINE ── */}
+          {activeTab === 1 && (
+            <div>
+              <div style={{ color: theme.textDim, fontSize: 11, marginBottom: 16, lineHeight: 1.6 }}>
+                Triggered on <Tag color={theme.amber}>pull_request → main</Tag> &nbsp;
+                Image built but <strong style={{ color: theme.red }}>not pushed</strong>. All checks must pass before merge.
+              </div>
+
+              <div style={{ overflowX: "auto", paddingBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 500 }}>
+                  <Job icon="🔍" title="lint" subtitle="Static analysis" color={theme.amber}
+                    tags={["eslint", "prettier"]} tests={["code style", "formatting"]} />
+                  <Arrow />
+                  <Job icon="🧪" title="unit-test" subtitle="Fast feedback" color={theme.green}
+                    tags={["jest", "pytest"]} tests={["business logic", "edge cases"]} />
+                  <Arrow />
+                  <Job icon="🔨" title="build" subtitle="Validate Dockerfile" color={theme.accent}
+                    tags={["docker buildx"]} tests={["build succeeds", "layers cached"]} />
+                </div>
+              </div>
+
+              <div style={{ marginTop: 16, padding: "12px 14px", background: theme.amberGlow, border: `1px solid ${theme.amber}44`, borderRadius: 8 }}>
+                <div style={{ color: theme.amber, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>⚠️ Build without push</div>
+                <div style={{ color: theme.textDim, fontSize: 10, lineHeight: 1.7 }}>
+                  On PR, Docker build runs with <code>push: false</code> — validates the Dockerfile without pushing to ghcr.io.
+                  Avoids polluting the registry with unmerged branches. Real push happens only after merge to main.
+                </div>
+              </div>
+
+              <div style={{ marginTop: 14, background: theme.surface, borderRadius: 10, padding: "14px 16px", border: `1px solid ${theme.border}` }}>
+                <div style={{ color: theme.textDim, fontSize: 10, marginBottom: 8 }}>
+                  📋 Branch protection rules on <code style={{ color: theme.accent }}>main</code>:
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {[
+                    { icon: "🔒", rule: "No direct push to main" },
+                    { icon: "👥", rule: "PR required — min 1 reviewer" },
+                    { icon: "✅", rule: "All 3 CI checks must pass" },
+                    { icon: "🔄", rule: "Branch must be up to date" },
+                  ].map((r, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: theme.bg, borderRadius: 6, padding: "8px 10px" }}>
+                      <span style={{ fontSize: 14 }}>{r.icon}</span>
+                      <span style={{ color: theme.textDim, fontSize: 10 }}>{r.rule}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 2: CD PIPELINE ── */}
+          {activeTab === 2 && (
+            <div>
+              <div style={{ color: theme.textDim, fontSize: 11, marginBottom: 16, lineHeight: 1.6 }}>
+                Triggered on <Tag color={theme.green}>push → main</Tag> after PR merge.
+                Image built <strong style={{ color: theme.green }}>once</strong>, pinned by digest, reused in all jobs.
+              </div>
+
+              <div style={{ overflowX: "auto", paddingBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 920 }}>
+                  <Job icon="🏗️" title="build" subtitle="Build & push ghcr.io" color={theme.accent}
+                    tags={["docker buildx", "ghcr.io"]} tests={["digest captured", "cache set"]} />
+                  <Arrow />
+                  <Job icon="🧪" title="unit-test" subtitle="Test built image" color={theme.green}
+                    tags={["digest pinned"]} tests={["logic", "container boots"]} />
+                  <Arrow />
+                  <Job icon="🚀" title="deploy-dev" subtitle="Railway dev" color={theme.cyan}
+                    tags={["railway CLI"]} tests={["service live"]} />
+                  <Arrow />
+                  <Job icon="🩺" title="smoke-test" subtitle="HTTP /health vs dev" color={theme.purple}
+                    tags={["15 retries"]} tests={["HTTP 200", "alive"]} />
+                  <Arrow />
+                  <Job icon="🔬" title="integration" subtitle="External deps" color={theme.amber}
+                    tags={["API", "DB"]} tests={["e2e flows", "auth"]} />
+                  <Arrow />
+                  <Gate />
+                  <Arrow />
+                  <Job icon="🎯" title="deploy-prod" subtitle="Railway prod" color={theme.green}
+                    tags={["approved"]} tests={["same digest", "prod live"]} />
+                </div>
+              </div>
+
+              <div style={{ marginTop: 14, background: theme.surface, borderRadius: 10, padding: "14px 16px", border: `1px solid ${theme.border}`, marginBottom: 12 }}>
+                <div style={{ color: theme.textDim, fontSize: 10, marginBottom: 8 }}>
+                  🔒 <strong style={{ color: theme.text }}>Build-once digest flow:</strong>
+                </div>
+                <pre style={{ color: theme.accent, fontSize: 9, margin: 0, lineHeight: 1.9, overflowX: "auto" }}>{`build outputs:
+  image:  ghcr.io/bb-claw/my-service
+  digest: sha256:a1b2c3d4...  ← immutable
+
+unit-test:   docker run ...@sha256:a1b2c3d4...
+deploy-dev:  railway redeploy (same digest)
+deploy-prod: railway redeploy (same digest)
+             ✓ test artifact = prod artifact`}</pre>
+              </div>
+
+              <div style={{ background: theme.surface, borderRadius: 10, padding: "14px 16px", border: `1px solid ${theme.border}` }}>
+                <div style={{ color: theme.textDim, fontSize: 10, marginBottom: 8 }}>📊 Job dependency graph:</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {[
+                    { job: "build", needs: "—", color: theme.accent },
+                    { job: "unit-test", needs: "build", color: theme.green },
+                    { job: "deploy-dev", needs: "build, unit-test", color: theme.cyan },
+                    { job: "smoke-test", needs: "deploy-dev", color: theme.purple },
+                    { job: "integration-test", needs: "smoke-test", color: theme.amber },
+                    { job: "deploy-prod", needs: "integration-test + approval", color: theme.green },
+                  ].map((row, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", background: theme.bg, borderRadius: 6, padding: "6px 10px" }}>
+                      <code style={{ color: row.color, fontSize: 10, minWidth: 110, flexShrink: 0 }}>{row.job}</code>
+                      <span style={{ color: theme.textFaint, fontSize: 10, flexShrink: 0 }}>needs:</span>
+                      <span style={{ color: theme.textDim, fontSize: 10 }}>{row.needs}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 3: SHARED WORKFLOWS ── */}
+          {activeTab === 3 && (
+            <div>
+              <div style={{ color: theme.textDim, fontSize: 11, marginBottom: 16, lineHeight: 1.6 }}>
+                All in <code style={{ color: theme.accent }}>bb-claw/ci-workflows/.github/workflows/</code>.
+                Called via <code style={{ color: theme.green }}>uses: bb-claw/ci-workflows/...@v1</code>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <WorkflowCard file="full-pipeline.yml" trigger="workflow_call" color={theme.accent}
+                  desc="Top-level orchestrator. One call from a service repo triggers the entire CD pipeline."
+                  jobs={[
+                    { icon: "📞", name: "calls: docker-build-push.yml", detail: "delegates build", tags: ["reusable"] },
+                    { icon: "📞", name: "calls: deploy-railway.yml", detail: "dev deployment", tags: ["reusable"] },
+                    { icon: "📞", name: "calls: smoke-test.yml", detail: "health check vs dev", tags: ["reusable"] },
+                    { icon: "📞", name: "calls: integration-test.yml", detail: "tests vs dev", tags: ["reusable"] },
+                    { icon: "📞", name: "calls: deploy-railway.yml", detail: "prod after approval", tags: ["reusable"] },
+                  ]} />
+                <WorkflowCard file="docker-build-push.yml" trigger="workflow_call" color={theme.cyan}
+                  desc="Builds Docker image with Buildx, pushes to ghcr.io, outputs immutable digest. GHA cache enabled."
+                  jobs={[
+                    { icon: "🏗️", name: "build", detail: "docker/build-push-action@v6, cache-from/to: gha", tags: ["push: true", "digest output"] },
+                  ]} />
+                <WorkflowCard file="deploy-railway.yml" trigger="workflow_call" color={theme.green}
+                  desc="Deploys a pre-built ghcr.io image to Railway. env input targets dev or prod."
+                  jobs={[
+                    { icon: "🚀", name: "deploy", detail: "railway redeploy --service=${{ inputs.service-id }} -y", tags: ["input: env", "input: service-id"] },
+                  ]} />
+                <WorkflowCard file="smoke-test.yml" trigger="workflow_call" color={theme.purple}
+                  desc="HTTP health check with retry loop — 15 retries × 10s = 150s max wait for cold-start."
+                  jobs={[
+                    { icon: "🩺", name: "health-check", detail: "curl -fsS url/health, configurable path", tags: ["input: url", "input: path"] },
+                  ]} />
+                <WorkflowCard file="integration-test.yml" trigger="workflow_call" color={theme.amber}
+                  desc="Checks out caller's code, runs integration suite against live dev URL."
+                  jobs={[
+                    { icon: "🔬", name: "integration-test", detail: "npm run test:integration (configurable)", tags: ["input: command", "input: api-url"] },
+                  ]} />
+                <WorkflowCard file="node-ci.yml / python-ci.yml" trigger="workflow_call" color={theme.textDim}
+                  desc="Language CI templates for PR workflow. Runs lint + unit tests without container build."
+                  jobs={[
+                    { icon: "🔍", name: "lint", detail: "eslint / flake8", tags: ["input: node-version"] },
+                    { icon: "🧪", name: "unit-test", detail: "jest / pytest", tags: ["input: test-cmd"] },
+                  ]} />
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 4: SECRETS & VARS ── */}
+          {activeTab === 4 && (
+            <div>
+              <div style={{ color: theme.textDim, fontSize: 11, marginBottom: 16, lineHeight: 1.6 }}>
+                Shared workflows define <em>what</em> to do. Each repo defines <em>which</em> values — via GitHub Environments.
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Org level */}
+                <div style={{ background: theme.surface, border: `1px solid ${theme.accent}44`, borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <span>🏛️</span>
+                    <span style={{ color: theme.accent, fontWeight: 700, fontSize: 11 }}>Org-level</span>
+                    <Badge label="auto" color={theme.accent} />
+                  </div>
+                  <div style={{ background: theme.bg, borderRadius: 6, padding: "8px 10px" }}>
+                    <code style={{ color: theme.accent, fontSize: 10 }}>GITHUB_TOKEN</code>
+                    <div style={{ color: theme.textDim, fontSize: 9, marginTop: 2 }}>Auto-provided. Used for ghcr.io push/pull.</div>
+                  </div>
+                </div>
+
+                {/* Dev */}
+                <div style={{ background: theme.surface, border: `1px solid ${theme.cyan}44`, borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <span>🔵</span>
+                    <span style={{ color: theme.cyan, fontWeight: 700, fontSize: 11 }}>GitHub Environment: dev</span>
+                  </div>
+                  {[
+                    { name: "RAILWAY_TOKEN_DEV", desc: "Railway token scoped to dev" },
+                    { name: "DEV_API_KEY", desc: "Project-specific secret for integration tests" },
+                  ].map((s, i) => (
+                    <div key={i} style={{ background: theme.bg, borderRadius: 6, padding: "8px 10px", marginBottom: 6 }}>
+                      <code style={{ color: theme.cyan, fontSize: 10 }}>{s.name}</code>
+                      <div style={{ color: theme.textDim, fontSize: 9, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                  ))}
+                  <div style={{ color: theme.textDim, fontSize: 10, fontWeight: 700, margin: "8px 0 6px" }}>vars (non-secret)</div>
+                  {[
+                    { name: "DEV_URL", desc: "https://my-service-dev.up.railway.app" },
+                    { name: "RAILWAY_SERVICE_ID", desc: "Railway service ID for dev" },
+                  ].map((s, i) => (
+                    <div key={i} style={{ background: theme.bg, borderRadius: 6, padding: "8px 10px", marginBottom: 6 }}>
+                      <code style={{ color: theme.cyan, fontSize: 10 }}>{s.name}</code>
+                      <div style={{ color: theme.textDim, fontSize: 9, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Prod */}
+                <div style={{ background: theme.surface, border: `1px solid ${theme.green}44`, borderRadius: 10, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <span>🟢</span>
+                    <span style={{ color: theme.green, fontWeight: 700, fontSize: 11 }}>GitHub Environment: production</span>
+                  </div>
+                  {[
+                    { name: "RAILWAY_TOKEN_PROD", desc: "Railway token scoped to prod" },
+                    { name: "PROD_API_KEY", desc: "Production-specific secret" },
+                  ].map((s, i) => (
+                    <div key={i} style={{ background: theme.bg, borderRadius: 6, padding: "8px 10px", marginBottom: 6 }}>
+                      <code style={{ color: theme.green, fontSize: 10 }}>{s.name}</code>
+                      <div style={{ color: theme.textDim, fontSize: 9, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                  ))}
+                  <div style={{ color: theme.textDim, fontSize: 10, fontWeight: 700, margin: "8px 0 6px" }}>vars (non-secret)</div>
+                  {[
+                    { name: "PROD_URL", desc: "https://my-service.up.railway.app" },
+                    { name: "RAILWAY_SERVICE_ID", desc: "Railway service ID for prod" },
+                  ].map((s, i) => (
+                    <div key={i} style={{ background: theme.bg, borderRadius: 6, padding: "8px 10px", marginBottom: 6 }}>
+                      <code style={{ color: theme.green, fontSize: 10 }}>{s.name}</code>
+                      <div style={{ color: theme.textDim, fontSize: 9, marginTop: 2 }}>{s.desc}</div>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 8, background: theme.amberGlow, border: `1px solid ${theme.amber}44`, borderRadius: 6, padding: "8px 10px" }}>
+                    <div style={{ color: theme.amber, fontSize: 10, fontWeight: 700 }}>🔐 Required reviewers gate</div>
+                    <div style={{ color: theme.textDim, fontSize: 9, marginTop: 2 }}>
+                      Settings → Environments → production → Required reviewers. Blocks deploy-prod until approved.
+                    </div>
+                  </div>
+                </div>
+
+                {/* secrets: inherit */}
+                <div style={{ background: theme.surface, borderRadius: 10, padding: "14px 16px", border: `1px solid ${theme.border}` }}>
+                  <div style={{ color: theme.text, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>
+                    💡 <code style={{ color: theme.accent }}>secrets: inherit</code>
+                  </div>
+                  <div style={{ color: theme.textDim, fontSize: 10, lineHeight: 1.8, marginBottom: 10 }}>
+                    Every secret in the calling repo flows through automatically.
+                    The shared workflow never needs to know about project-specific keys like
+                    <code> STRIPE_API_KEY</code> or <code>DATABASE_URL</code>.
+                  </div>
+                  <pre style={{ color: theme.green, fontSize: 9, margin: 0, lineHeight: 1.8 }}>{`# Repo A defines: STRIPE_API_KEY, DB_URL
+# Repo B defines: SENDGRID_KEY, S3_BUCKET
+# Both use the same shared workflow
+# Each gets only their own secrets ✓`}</pre>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

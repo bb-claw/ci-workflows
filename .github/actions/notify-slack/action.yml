@@ -1,0 +1,118 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# actions/notify-slack/action.yml
+#
+# Composite action: sends a Slack notification about a deployment event.
+# Requires SLACK_WEBHOOK_URL to be set as a secret in the calling repo
+# and forwarded via `secrets: inherit` or explicitly.
+#
+# Usage in a workflow step:
+#   - uses: bb-claw/ci-workflows/.github/actions/notify-slack@v1
+#     with:
+#       status: success
+#       environment: production
+#       service: my-service
+#       url: https://my-service.up.railway.app
+#     env:
+#       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+# ─────────────────────────────────────────────────────────────────────────────
+name: Notify Slack
+description: Sends a Slack deployment notification via webhook.
+
+inputs:
+  status:
+    description: "Deployment status: success | failure | rollback"
+    required: true
+  environment:
+    description: "Target environment: dev | production"
+    required: true
+  service:
+    description: "Service name"
+    required: false
+    default: ${{ github.repository }}
+  url:
+    description: "Deployed service URL"
+    required: false
+    default: ""
+  commit-sha:
+    description: "Git commit SHA"
+    required: false
+    default: ${{ github.sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Send Slack notification
+      shell: bash
+      env:
+        SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+      run: |
+        STATUS="${{ inputs.status }}"
+        ENVIRONMENT="${{ inputs.environment }}"
+        SERVICE="${{ inputs.service }}"
+        URL="${{ inputs.url }}"
+        SHA="${{ inputs.commit-sha }}"
+        SHORT_SHA="${SHA:0:7}"
+        RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+        case "$STATUS" in
+          success)
+            EMOJI="✅"
+            COLOR="#22c55e"
+            TEXT="Deployment succeeded"
+            ;;
+          failure)
+            EMOJI="❌"
+            COLOR="#ef4444"
+            TEXT="Deployment failed"
+            ;;
+          rollback)
+            EMOJI="⏪"
+            COLOR="#f59e0b"
+            TEXT="Deployment rolled back"
+            ;;
+          *)
+            EMOJI="ℹ️"
+            COLOR="#3b82f6"
+            TEXT="Deployment event"
+            ;;
+        esac
+
+        PAYLOAD=$(cat <<EOF
+        {
+          "attachments": [
+            {
+              "color": "$COLOR",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "$EMOJI *$TEXT* — \`$SERVICE\` → *$ENVIRONMENT*"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    { "type": "mrkdwn", "text": "Commit: <https://github.com/${{ github.repository }}/commit/$SHA|\`$SHORT_SHA\`>" },
+                    { "type": "mrkdwn", "text": "Run: <$RUN_URL|#${{ github.run_number }}>" }
+                  ]
+                }
+                $([ -n "$URL" ] && echo ', { "type": "section", "text": { "type": "mrkdwn", "text": "🔗 <'$URL'|Open service>" } }')
+              ]
+            }
+          ]
+        }
+        EOF
+        )
+
+        if [ -z "$SLACK_WEBHOOK_URL" ]; then
+          echo "⚠️  SLACK_WEBHOOK_URL not set — skipping notification"
+          exit 0
+        fi
+
+        curl -s -X POST \
+          -H "Content-Type: application/json" \
+          -d "$PAYLOAD" \
+          "$SLACK_WEBHOOK_URL"
+
+        echo "✅ Slack notification sent"

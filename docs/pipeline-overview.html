@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>bb-claw · Pipeline Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #080b10;
+    --surface:  #0d1117;
+    --card:     #111820;
+    --border:   #1a2336;
+    --border2:  #243044;
+    --feature:  #f59e0b;
+    --main:     #22c55e;
+    --ci:       #fb923c;
+    --cd:       #34d399;
+    --docker:   #2563eb;
+    --test:     #a78bfa;
+    --smoke:    #06b6d4;
+    --int:      #f472b6;
+    --unit:     #86efac;
+    --prod:     #4ade80;
+    --prod:     #4ade80;
+    --muted:    #334155;
+    --dim:      #64748b;
+    --soft:     #94a3b8;
+    --text:     #e2e8f0;
+    --white:    #f8fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(180deg, #0d1525 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 28px 24px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 50% -20%, #1e40af18 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(18px, 5vw, 26px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--white);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .header-sub { font-size: 11px; color: var(--dim); margin-top: 6px; letter-spacing: 0.04em; }
+  .logo-dot {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; box-shadow: 0 0 24px #3b82f640;
+  }
+  /* ── LEGEND ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .leg { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--soft); }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .leg-rect { width: 14px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  /* ── SECTION ── */
+  .section { padding: 0 20px; margin-top: 28px; }
+  .section-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--dim);
+    margin-bottom: 14px; padding-left: 2px;
+  }
+  /* ── BRANCH LANE ── */
+  .branch-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 8px 8px 0 0;
+    border: 1px solid; border-bottom: none;
+    font-size: 12px; font-weight: 700;
+  }
+  .branch-tag {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+    padding: 2px 8px; border-radius: 20px; text-transform: uppercase;
+  }
+  .pipeline-box {
+    border: 1px solid; border-radius: 0 0 10px 10px;
+    overflow: hidden;
+  }
+  /* ── STEP ROW ── */
+  .step {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 14px 0 0;
+    font-size: 9px; font-weight: 700; color: var(--muted);
+  }
+  .step-body { padding: 12px 14px 12px 4px; }
+  .step-trigger {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .step-name { font-size: 13px; font-weight: 700; color: var(--white); margin-bottom: 3px; }
+  .step-file {
+    font-size: 9px; color: var(--dim); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    border-radius: 4px; padding: 2px 8px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .row-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  /* ── TEST GRID ── */
+  .tests-label { font-size: 9px; color: var(--dim); font-weight: 600; margin-bottom: 6px; letter-spacing: 0.06em; }
+  .test-grid { display: flex; flex-direction: column; gap: 4px; }
+  .test-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 10px; border-radius: 6px;
+    border: 1px solid;
+  }
+  .test-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+  .test-name { font-size: 10px; font-weight: 700; margin-bottom: 2px; }
+  .test-cases { font-size: 9px; color: var(--soft); }
+  /* ── DOCKER PUSH ── */
+  .docker-push {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border-radius: 8px; margin-top: 10px;
+    border: 1px solid #2563eb55;
+    background: #2563eb0d;
+  }
+  .docker-push-icon { font-size: 18px; flex-shrink: 0; }
+  .docker-push-title { font-size: 10px; font-weight: 700; color: #60a5fa; margin-bottom: 3px; }
+  .docker-push-detail { font-size: 9px; color: var(--soft); line-height: 1.7; }
+  .no-push {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: 6px; margin-top: 10px;
+    border: 1px solid #ef444430; background: #ef44440a;
+    font-size: 9px; color: #f87171;
+  }
+  /* ── CONNECTOR ── */
+  .connector {
+    display: flex; align-items: center; gap: 0;
+    margin: 0 20px; position: relative;
+  }
+  .conn-line {
+    width: 2px; height: 28px; margin: 0 auto;
+    position: relative;
+  }
+  .conn-label {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: 4px;
+    font-size: 9px; font-weight: 700; white-space: nowrap;
+    padding: 2px 8px; border-radius: 20px;
+    letter-spacing: 0.06em;
+  }
+  /* ── MERGE BLOCK ── */
+  .merge-block {
+    margin: 0 20px;
+    border: 1px solid var(--main);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0d2218, #0a1a14);
+    padding: 14px 16px;
+    display: flex; align-items: flex-start; gap: 12px;
+    box-shadow: 0 0 30px #22c55e18;
+  }
+  .merge-icon { font-size: 24px; flex-shrink: 0; }
+  .merge-title { font-size: 13px; font-weight: 700; color: var(--main); margin-bottom: 3px; }
+  .merge-sub { font-size: 10px; color: var(--soft); line-height: 1.6; }
+  /* ── GATE ── */
+  .gate {
+    margin: 0; padding: 12px 14px;
+    background: #1c150a; border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .gate-icon { font-size: 20px; }
+  .gate-title { font-size: 11px; font-weight: 700; color: var(--feature); }
+  .gate-sub { font-size: 9px; color: var(--soft); margin-top: 2px; }
+  /* ── REGISTRY SUMMARY ── */
+  .registry-card {
+    margin: 28px 20px 0;
+    border: 1px solid #1d4ed855;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0a1628, #080f1e);
+    overflow: hidden;
+    box-shadow: 0 0 40px #2563eb14;
+  }
+  .registry-header {
+    background: #0f1f3d;
+    padding: 12px 16px;
+    border-bottom: 1px solid #1d4ed855;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .registry-title { font-size: 12px; font-weight: 700; color: #60a5fa; }
+  .registry-sub { font-size: 9px; color: var(--dim); margin-top: 2px; }
+  .registry-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .registry-row {
+    display: grid; grid-template-columns: auto 1fr auto;
+    align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid;
+  }
+  .reg-when { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 3px; }
+  .reg-image { font-size: 10px; color: var(--soft); font-family: monospace; word-break: break-all; }
+  .reg-tag-col { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .anim { animation: fadeUp 0.5s ease both; }
+  .anim-1 { animation-delay: 0.05s; }
+  .anim-2 { animation-delay: 0.1s; }
+  .anim-3 { animation-delay: 0.15s; }
+  .anim-4 { animation-delay: 0.2s; }
+  .anim-5 { animation-delay: 0.25s; }
+  .anim-6 { animation-delay: 0.3s; }
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 0 3px #22c55e22; }
+  }
+  .merge-block { animation: pulse-border 3s ease infinite; }
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-title">
+    <div class="logo-dot">⚡</div>
+    <div>
+      bb-claw · Pipeline Overview
+      <div class="header-sub">Branch → Workflow → Tests → Registry · full lifecycle map</div>
+    </div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="leg"><div class="leg-dot" style="background:var(--feature)"></div>feature/* branch</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--main)"></div>main branch</div>
+  <div class="leg"><div class="leg-rect" style="background:#fb923c33;border:1px solid var(--ci)"></div>CI workflow</div>
+  <div class="leg"><div class="leg-rect" style="background:#34d39933;border:1px solid var(--cd)"></div>CD workflow</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--unit)"></div>unit tests</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--smoke)"></div>smoke tests</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--int)"></div>integration tests</div>
+  <div class="leg"><div class="leg-dot" style="background:var(--docker)"></div>docker push</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     LANE 1: FEATURE BRANCH — CI
+══════════════════════════════════════════════════════ -->
+<div class="section anim anim-1">
+  <div class="section-label">① Feature branch lifecycle — 2 phases</div>
+
+  <!-- Branch header -->
+  <div class="branch-header" style="color:var(--feature);border-color:#f59e0b55;background:#1a100233;">
+    <span style="font-size:18px">🌿</span>
+    <span>feature/my-change</span>
+    <div class="branch-tag" style="background:#f59e0b22;color:var(--feature);border:1px solid #f59e0b44">FEATURE BRANCH</div>
+    <div style="margin-left:auto;font-size:9px;color:var(--dim)">every push to feature/*</div>
+  </div>
+
+  <div class="pipeline-box" style="border-color:#f59e0b44;background:var(--card)">
+
+    <!-- STEP 1: Push to feature → fast CI immediately -->
+    <div class="step" style="background:#0f1a08">
+      <div class="step-num" style="color:var(--ci)">01</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--feature)">
+          <span>⚡</span> trigger: push → feature/*
+          <span style="background:#f59e0b22;color:var(--feature);border:1px solid #f59e0b44;border-radius:4px;padding:1px 7px;font-size:9px;font-weight:700">IMMEDIATE — every commit</span>
+        </div>
+        <div class="step-name">Fast CI — shift-left feedback loop</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--ci)">.github/workflows/ci.yml</span>
+          <span style="color:var(--dim)">→ uses: bb-claw/ci-workflows/node-ci.yml@v1</span>
+        </div>
+
+        <div style="margin-bottom:10px;padding:8px 12px;border-radius:6px;border:1px solid #f59e0b33;background:#f59e0b0a;font-size:9px;color:var(--soft);line-height:1.8">
+          <span style="color:var(--feature);font-weight:700">Shift-left principle:</span> Catch failures on your own branch immediately —
+          not when you open a PR. Lint and unit tests are cheap and fast (&lt;2 min).
+          Run them on every single commit so problems surface at their source.
+        </div>
+
+        <div class="tests-label">🧪 TESTS EXECUTED ON EVERY PUSH</div>
+        <div class="test-grid">
+          <div class="test-row" style="border-color:#86efac44;background:#86efac08">
+            <div class="test-icon">🔍</div>
+            <div>
+              <div class="test-name" style="color:var(--unit)">Job: lint</div>
+              <div class="test-cases">eslint / prettier · code style · formatting rules · import order · type checks</div>
+            </div>
+          </div>
+          <div class="test-row" style="border-color:#86efac44;background:#86efac08">
+            <div class="test-icon">🧪</div>
+            <div>
+              <div class="test-name" style="color:var(--unit)">Job: unit-test</div>
+              <div class="test-cases">jest / pytest · business logic · pure functions · edge cases · error handling</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-push" style="margin-top:10px">
+          🐳 No Docker build. No image push. Fast feedback only — lint + unit in parallel.
+        </div>
+      </div>
+    </div>
+
+    <!-- DIVIDER: PR opened -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0d1520;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+      <span style="font-size:14px">🔀</span>
+      <span style="font-size:9px;font-weight:700;color:var(--dim);letter-spacing:0.08em;text-transform:uppercase">PR opened against main → additional checks unlock</span>
+    </div>
+
+    <!-- STEP 2: PR opened → full CI including build -->
+    <div class="step" style="background:#0f1a0e">
+      <div class="step-num" style="color:var(--ci)">02</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--ci)">
+          <span>⚡</span> trigger: pull_request → main
+          <span style="background:#fb923c22;color:var(--ci);border:1px solid #fb923c44;border-radius:4px;padding:1px 7px;font-size:9px;font-weight:700">PR GATE</span>
+        </div>
+        <div class="step-name">Full CI — build validation added</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:#fb923c">.github/workflows/ci.yml</span>
+          <span style="color:var(--dim)">→ same workflow, build job now enabled</span>
+        </div>
+
+        <div style="margin-bottom:10px;padding:8px 12px;border-radius:6px;border:1px solid #fb923c33;background:#fb923c0a;font-size:9px;color:var(--soft);line-height:1.8">
+          Lint and unit tests already ran on every push, so they're fast re-runs here (GHA cache hits).
+          The build job is the new addition — validates the Dockerfile compiles before code can merge.
+        </div>
+
+        <div class="tests-label">🧪 TESTS EXECUTED ON PR</div>
+        <div class="test-grid">
+          <div class="test-row" style="border-color:#86efac44;background:#86efac08">
+            <div class="test-icon">🔍</div>
+            <div>
+              <div class="test-name" style="color:var(--unit)">Job: lint <span style="color:var(--dim);font-weight:400">(re-run, cache hit)</span></div>
+              <div class="test-cases">eslint / prettier · code style · formatting rules · import order · type checks</div>
+            </div>
+          </div>
+          <div class="test-row" style="border-color:#86efac44;background:#86efac08">
+            <div class="test-icon">🧪</div>
+            <div>
+              <div class="test-name" style="color:var(--unit)">Job: unit-test <span style="color:var(--dim);font-weight:400">(re-run, cache hit)</span></div>
+              <div class="test-cases">jest / pytest · business logic · pure functions · edge cases · error handling</div>
+            </div>
+          </div>
+          <div class="test-row" style="border-color:#fb923c44;background:#fb923c08">
+            <div class="test-icon">🔨</div>
+            <div>
+              <div class="test-name" style="color:var(--ci)">Job: build (validate only) <span style="color:var(--feature);font-weight:700">★ new</span></div>
+              <div class="test-cases">docker buildx · Dockerfile syntax · layer caching · build args validation · image compiles</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-push" style="margin-top:10px">
+          🐳 <strong>push: false</strong> — image built on runner for validation only, not pushed to ghcr.io
+        </div>
+
+        <div style="margin-top:10px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);font-size:9px;color:var(--soft);line-height:1.8">
+          <span style="color:var(--text);font-weight:700">Branch protection gate:</span><br/>
+          All 3 jobs must ✅ pass before PR can be merged into main
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MERGE ARROW -->
+<div style="margin: 20px 20px 0; display:flex; flex-direction:column; align-items:center; gap:0" class="anim anim-2">
+  <div style="width:2px;height:20px;background:linear-gradient(var(--feature),var(--main))"></div>
+  <div style="background:#0d2218;border:1px solid var(--main);border-radius:8px;padding:8px 20px;font-size:10px;font-weight:700;color:var(--main);display:flex;align-items:center;gap:8px">
+    <span>🔀</span> PR approved + all CI checks pass → Merge into main
+  </div>
+  <div style="width:2px;height:20px;background:linear-gradient(var(--main),var(--main))"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     LANE 2: MAIN BRANCH — CD
+══════════════════════════════════════════════════════ -->
+<div class="section anim anim-3" style="margin-top:0">
+  <div class="section-label" style="margin-top:20px">② Main branch — full CD pipeline (triggered on merge)</div>
+
+  <div class="branch-header" style="color:var(--main);border-color:#22c55e55;background:#0d200f33;">
+    <span style="font-size:18px">🌳</span>
+    <span>main</span>
+    <div class="branch-tag" style="background:#22c55e22;color:var(--main);border:1px solid #22c55e44">RELEASE BRANCH</div>
+    <div style="margin-left:auto;font-size:9px;color:var(--dim)">push (= merged PR)</div>
+  </div>
+
+  <div class="pipeline-box" style="border-color:#22c55e44;background:var(--card)">
+
+    <!-- STEP 1: BUILD & PUSH -->
+    <div class="step" style="background:#0a1410">
+      <div class="step-num" style="color:#60a5fa">01</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--cd)">
+          <span>⚡</span> on: push → main
+          <span style="color:var(--dim)">·</span>
+          <span style="color:var(--dim)">job: build</span>
+        </div>
+        <div class="step-name">Build & Push Docker Image</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--cd)">full-pipeline.yml</span>
+          <span style="color:var(--dim)">→ calls docker-build-push.yml@v1</span>
+        </div>
+
+        <div class="row-tags">
+          <span class="pill" style="background:#2563eb18;color:#60a5fa;border:1px solid #2563eb44">docker/setup-buildx-action@v3</span>
+          <span class="pill" style="background:#2563eb18;color:#60a5fa;border:1px solid #2563eb44">docker/build-push-action@v6</span>
+          <span class="pill" style="background:#2563eb18;color:#60a5fa;border:1px solid #2563eb44">cache-from/to: gha</span>
+        </div>
+
+        <div class="tests-label">🧪 CHECKS DURING BUILD</div>
+        <div class="test-grid">
+          <div class="test-row" style="border-color:#2563eb44;background:#2563eb08">
+            <div class="test-icon">✅</div>
+            <div>
+              <div class="test-name" style="color:#60a5fa">Build validation</div>
+              <div class="test-cases">Dockerfile compiles · all layers succeed · build args resolved · image size checked</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="docker-push">
+          <div class="docker-push-icon">🐳</div>
+          <div>
+            <div class="docker-push-title">IMAGE PUSHED TO ghcr.io</div>
+            <div class="docker-push-detail">
+              ghcr.io/bb-claw/&lt;repo-name&gt;:sha-&lt;commit&gt;<br/>
+              ghcr.io/bb-claw/&lt;repo-name&gt;:latest<br/>
+              <span style="color:#60a5fa">→ digest: sha256:a1b2c3... captured as job output</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: UNIT TEST -->
+    <div class="step" style="background:#0a120f">
+      <div class="step-num" style="color:var(--unit)">02</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--cd)">
+          <span>⚡</span> needs: build
+          <span style="color:var(--dim)">·</span>
+          <span style="color:var(--dim)">job: unit-test</span>
+        </div>
+        <div class="step-name">Unit Tests — against built image</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--cd)">full-pipeline.yml</span>
+          <span style="color:var(--dim)">→ pulls image by digest from ghcr.io</span>
+        </div>
+
+        <div class="row-tags">
+          <span class="pill" style="background:#86efac18;color:var(--unit);border:1px solid #86efac44">digest pinned: sha256:...</span>
+          <span class="pill" style="background:#86efac18;color:var(--unit);border:1px solid #86efac44">docker run --rm</span>
+        </div>
+
+        <div class="tests-label">🧪 TESTS EXECUTED</div>
+        <div class="test-grid">
+          <div class="test-row" style="border-color:#86efac44;background:#86efac08">
+            <div class="test-icon">🧪</div>
+            <div>
+              <div class="test-name" style="color:var(--unit)">Unit test suite</div>
+              <div class="test-cases">
+                Business logic · pure functions · edge cases<br/>
+                Container boots correctly · ENV vars resolved<br/>
+                Exit code 0 required to proceed
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-push">🐳 No new push. Same digest image pulled from ghcr.io for testing.</div>
+      </div>
+    </div>
+
+    <!-- STEP 3: DEPLOY DEV -->
+    <div class="step" style="background:#091418">
+      <div class="step-num" style="color:var(--smoke)">03</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--cd)">
+          <span>⚡</span> needs: build, unit-test
+          <span style="color:var(--dim)">·</span>
+          <span style="color:var(--dim)">job: deploy-dev</span>
+        </div>
+        <div class="step-name">Deploy → Railway dev</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--cd)">full-pipeline.yml</span>
+          <span style="color:var(--dim)">→ calls deploy-railway.yml@v1 (env: dev)</span>
+        </div>
+
+        <div class="row-tags">
+          <span class="pill" style="background:#06b6d418;color:var(--smoke);border:1px solid #06b6d444">environment: dev</span>
+          <span class="pill" style="background:#06b6d418;color:var(--smoke);border:1px solid #06b6d444">RAILWAY_TOKEN_DEV</span>
+          <span class="pill" style="background:#06b6d418;color:var(--smoke);border:1px solid #06b6d444">railway redeploy -y</span>
+        </div>
+
+        <div style="margin-top:8px;padding:8px 12px;border-radius:6px;border:1px solid #06b6d444;background:#06b6d40a;font-size:9px;color:var(--soft);line-height:1.8">
+          Railway pulls <span style="color:var(--smoke)">ghcr.io/bb-claw/&lt;repo&gt;@sha256:a1b2c3...</span> from registry
+          and redeploys the dev service. Same digest as built in step 01.
+        </div>
+
+        <div class="no-push" style="margin-top:8px">🐳 No new image push. Railway pulls the existing digest from ghcr.io.</div>
+      </div>
+    </div>
+
+    <!-- STEP 4: SMOKE TEST -->
+    <div class="step" style="background:#0a0f18">
+      <div class="step-num" style="color:var(--smoke)">04</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--cd)">
+          <span>⚡</span> needs: deploy-dev
+          <span style="color:var(--dim)">·</span>
+          <span style="color:var(--dim)">job: smoke-test</span>
+        </div>
+        <div class="step-name">Smoke Tests — HTTP health check vs dev</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--cd)">full-pipeline.yml</span>
+          <span style="color:var(--dim)">→ calls smoke-test.yml@v1</span>
+        </div>
+
+        <div class="row-tags">
+          <span class="pill" style="background:#06b6d418;color:var(--smoke);border:1px solid #06b6d444">curl -fsS</span>
+          <span class="pill" style="background:#06b6d418;color:var(--smoke);border:1px solid #06b6d444">15 retries × 10s</span>
+          <span class="pill" style="background:#06b6d418;color:var(--smoke);border:1px solid #06b6d444">max 150s</span>
+        </div>
+
+        <div class="tests-label">🧪 TESTS EXECUTED</div>
+        <div class="test-grid">
+          <div class="test-row" style="border-color:#06b6d444;background:#06b6d408">
+            <div class="test-icon">🩺</div>
+            <div>
+              <div class="test-name" style="color:var(--smoke)">HTTP smoke checks</div>
+              <div class="test-cases">
+                GET /health → HTTP 200 required<br/>
+                Response time within threshold<br/>
+                Service alive after Railway cold-start<br/>
+                No 5xx errors on startup
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-push">🐳 No image push. Test runs against live dev URL.</div>
+      </div>
+    </div>
+
+    <!-- STEP 5: INTEGRATION TEST -->
+    <div class="step" style="background:#120a12">
+      <div class="step-num" style="color:var(--int)">05</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--cd)">
+          <span>⚡</span> needs: smoke-test
+          <span style="color:var(--dim)">·</span>
+          <span style="color:var(--dim)">job: integration-test</span>
+        </div>
+        <div class="step-name">Integration Tests — external deps vs dev</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--cd)">full-pipeline.yml</span>
+          <span style="color:var(--dim)">→ calls integration-test.yml@v1</span>
+        </div>
+
+        <div class="row-tags">
+          <span class="pill" style="background:#f472b618;color:var(--int);border:1px solid #f472b644">API_BASE_URL: DEV_URL</span>
+          <span class="pill" style="background:#f472b618;color:var(--int);border:1px solid #f472b644">secrets: inherit</span>
+          <span class="pill" style="background:#f472b618;color:var(--int);border:1px solid #f472b644">npm run test:integration</span>
+        </div>
+
+        <div class="tests-label">🧪 TESTS EXECUTED</div>
+        <div class="test-grid">
+          <div class="test-row" style="border-color:#f472b644;background:#f472b608">
+            <div class="test-icon">🔬</div>
+            <div>
+              <div class="test-name" style="color:var(--int)">Integration test suite</div>
+              <div class="test-cases">
+                Full end-to-end API flows<br/>
+                Authentication &amp; authorization<br/>
+                Database read/write contracts<br/>
+                3rd party service calls (Stripe, SendGrid…)<br/>
+                Data validation &amp; schema contracts
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-push">🐳 No image push. Tests hit live dev environment via HTTP.</div>
+      </div>
+    </div>
+
+    <!-- AUTO-PROMOTION BANNER -->
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:linear-gradient(90deg,#0a1f0f,#0d2218);border-top:1px solid #22c55e44;border-bottom:1px solid #22c55e44;">
+      <span style="font-size:18px">🤖</span>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--main)">Automatic promotion to production</div>
+        <div style="font-size:9px;color:var(--soft);margin-top:2px">
+          All 5 test stages passed → pipeline promotes automatically. No human in the loop.
+          The tests <em>are</em> the gate.
+        </div>
+      </div>
+      <div style="margin-left:auto;display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+        <span class="pill" style="background:#22c55e18;color:var(--main);border:1px solid #22c55e44">✅ unit passed</span>
+        <span class="pill" style="background:#22c55e18;color:var(--main);border:1px solid #22c55e44">✅ smoke passed</span>
+        <span class="pill" style="background:#22c55e18;color:var(--main);border:1px solid #22c55e44">✅ integration passed</span>
+      </div>
+    </div>
+
+    <!-- STEP 6: DEPLOY PROD -->
+    <div class="step" style="background:#091408">
+      <div class="step-num" style="color:var(--prod)">06</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--cd)">
+          <span>⚡</span> needs: build, integration-test
+          <span style="color:var(--dim)">·</span>
+          <span style="color:var(--dim)">job: deploy-prod</span>
+          <span style="background:#22c55e22;color:var(--main);border:1px solid #22c55e44;border-radius:4px;padding:1px 7px;font-size:9px;font-weight:700">FULLY AUTOMATED</span>
+        </div>
+        <div class="step-name">Deploy → Railway production</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--cd)">full-pipeline.yml</span>
+          <span style="color:var(--dim)">→ calls deploy-railway.yml@v1 (env: production)</span>
+        </div>
+
+        <div class="row-tags">
+          <span class="pill" style="background:#4ade8018;color:var(--prod);border:1px solid #4ade8044">environment: production</span>
+          <span class="pill" style="background:#4ade8018;color:var(--prod);border:1px solid #4ade8044">RAILWAY_TOKEN_PROD</span>
+          <span class="pill" style="background:#4ade8018;color:var(--prod);border:1px solid #4ade8044">railway redeploy -y</span>
+        </div>
+
+        <div style="margin-top:8px;padding:8px 12px;border-radius:6px;border:1px solid #4ade8044;background:#4ade800a;font-size:9px;color:var(--soft);line-height:1.8">
+          Railway pulls the <strong style="color:var(--prod)">exact same digest</strong> (sha256:a1b2c3...) that was:<br/>
+          ✓ Built in step 01 &nbsp;·&nbsp; ✓ Unit-tested in step 02<br/>
+          ✓ Deployed &amp; smoke-tested on dev in steps 03–04<br/>
+          ✓ Integration-tested against dev in step 05<br/>
+          <span style="color:var(--prod)">→ If it passed all five stages, it ships. Zero drift, zero exceptions.</span>
+        </div>
+
+        <div class="no-push" style="margin-top:8px">🐳 No new image push. Same digest deployed to production.</div>
+      </div>
+    </div>
+
+    <!-- STEP 7: POST-PROD SMOKE TEST -->
+    <div class="step" style="background:#071208">
+      <div class="step-num" style="color:var(--prod)">07</div>
+      <div class="step-body">
+        <div class="step-trigger" style="color:var(--cd)">
+          <span>⚡</span> needs: deploy-prod
+          <span style="color:var(--dim)">·</span>
+          <span style="color:var(--dim)">job: smoke-test-prod</span>
+        </div>
+        <div class="step-name">Post-deploy smoke test — production</div>
+        <div class="step-file">
+          <span>📄</span>
+          <span style="color:var(--cd)">full-pipeline.yml</span>
+          <span style="color:var(--dim)">→ calls smoke-test.yml@v1 (url: PROD_URL)</span>
+        </div>
+
+        <div class="row-tags">
+          <span class="pill" style="background:#4ade8018;color:var(--prod);border:1px solid #4ade8044">url: PROD_URL</span>
+          <span class="pill" style="background:#4ade8018;color:var(--prod);border:1px solid #4ade8044">15 retries × 10s</span>
+          <span class="pill" style="background:#ef444418;color:#f87171;border:1px solid #ef444433">on-failure: rollback</span>
+        </div>
+
+        <div class="tests-label">🧪 TESTS EXECUTED</div>
+        <div class="test-grid">
+          <div class="test-row" style="border-color:#4ade8044;background:#4ade8008">
+            <div class="test-icon">🩺</div>
+            <div>
+              <div class="test-name" style="color:var(--prod)">Production health check</div>
+              <div class="test-cases">
+                GET /health → HTTP 200 on prod URL<br/>
+                Confirms Railway cold-start completed<br/>
+                Verifies correct image is serving traffic<br/>
+                <span style="color:#f87171">On failure → triggers railway rollback to previous deployment</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-push" style="margin-top:8px">🐳 No image push. Validates live production endpoint only.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     REGISTRY SUMMARY
+══════════════════════════════════════════════════════ -->
+<div class="registry-card anim anim-4">
+  <div class="registry-header">
+    <span style="font-size:22px">🐳</span>
+    <div>
+      <div class="registry-title">ghcr.io registry — what gets pushed and when</div>
+      <div class="registry-sub">GitHub Container Registry · org: bb-claw</div>
+    </div>
+  </div>
+  <div class="registry-body">
+
+    <div class="registry-row" style="border-color:#ef444433;background:#ef44440a">
+      <div style="font-size:20px">🚫</div>
+      <div>
+        <div class="reg-when" style="color:#f87171">Feature branch PR (CI)</div>
+        <div class="reg-image">No push. Docker build runs with push: false.<br/>Image exists only on the runner, then discarded.</div>
+      </div>
+      <div class="reg-tag-col">
+        <span class="pill" style="background:#ef444418;color:#f87171;border:1px solid #ef444433">no push</span>
+      </div>
+    </div>
+
+    <div class="registry-row" style="border-color:#2563eb55;background:#2563eb0d">
+      <div style="font-size:20px">✅</div>
+      <div>
+        <div class="reg-when" style="color:#60a5fa">Merge to main (CD — step 01 only)</div>
+        <div class="reg-image">
+          ghcr.io/bb-claw/openclaw-railway-template:sha-a1b2c3f<br/>
+          ghcr.io/bb-claw/openclaw-railway-template:latest
+        </div>
+      </div>
+      <div class="reg-tag-col">
+        <span class="pill" style="background:#2563eb22;color:#60a5fa;border:1px solid #2563eb44">:sha-&lt;commit&gt;</span>
+        <span class="pill" style="background:#2563eb22;color:#60a5fa;border:1px solid #2563eb44">:latest</span>
+      </div>
+    </div>
+
+    <div style="padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:9px;color:var(--soft);line-height:1.9">
+      <span style="color:var(--text);font-weight:700">Key principle — build once:</span><br/>
+      The image is pushed <strong style="color:#60a5fa">exactly once</strong> per pipeline run (step 01).<br/>
+      Steps 02–06 all reference the same immutable <span style="color:#60a5fa">sha256:...</span> digest.<br/>
+      Railway dev and Railway prod both pull the same image — no rebuilds, no drift.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TEST SUMMARY TABLE
+══════════════════════════════════════════════════════ -->
+<div class="section anim anim-5" style="margin-top:28px">
+  <div class="section-label">test execution summary — where each test type runs</div>
+
+  <div style="display:flex;flex-direction:column;gap:8px">
+
+    <!-- updated header row: 3 columns now -->
+
+    <!-- updated header row: 3 columns now -->
+    <div style="display:grid;grid-template-columns:90px 1fr;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="background:#111820;padding:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;border-right:1px solid var(--border)">Test type</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#0d1117">
+        <div style="padding:8px 10px;font-size:9px;font-weight:700;color:var(--feature);border-bottom:1px solid var(--border);border-right:1px solid var(--border)">🌿 push feature/* (fast CI)</div>
+        <div style="padding:8px 10px;font-size:9px;font-weight:700;color:var(--ci);border-bottom:1px solid var(--border);border-right:1px solid var(--border)">🔀 PR → main (full CI)</div>
+        <div style="padding:8px 10px;font-size:9px;font-weight:700;color:var(--main);border-bottom:1px solid var(--border)">🌳 merge to main (CD)</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:90px 1fr;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="background:#111820;padding:10px 12px;display:flex;align-items:center;font-size:10px;font-weight:700;color:var(--soft);border-right:1px solid var(--border)">🔍 Lint</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--card)">
+        <div style="padding:9px 10px;font-size:9px;color:var(--unit);background:#86efac08;border-right:1px solid var(--border)">✅ Job 01 — every push</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--unit);background:#86efac08;border-right:1px solid var(--border)">✅ Job 01 — cache hit</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted)">— gated at PR</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:90px 1fr;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="background:#111820;padding:10px 12px;display:flex;align-items:center;font-size:10px;font-weight:700;color:var(--soft);border-right:1px solid var(--border)">🧪 Unit</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--card)">
+        <div style="padding:9px 10px;font-size:9px;color:var(--unit);background:#86efac08;border-right:1px solid var(--border)">✅ Job 02 — every push</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--unit);background:#86efac08;border-right:1px solid var(--border)">✅ Job 02 — cache hit</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--cd);background:#34d39908">✅ Job 02 — in container</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:90px 1fr;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="background:#111820;padding:10px 12px;display:flex;align-items:center;font-size:10px;font-weight:700;color:var(--soft);border-right:1px solid var(--border)">🔨 Build</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--card)">
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted);border-right:1px solid var(--border)">— skipped (expensive)</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--unit);background:#86efac08;border-right:1px solid var(--border)">✅ Job 03 — push: false</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--cd);background:#34d39908">✅ Job 01 — push: true</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:90px 1fr;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="background:#111820;padding:10px 12px;display:flex;align-items:center;font-size:10px;font-weight:700;color:var(--soft);border-right:1px solid var(--border)">🩺 Smoke dev</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--card)">
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted);border-right:1px solid var(--border)">—</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted);border-right:1px solid var(--border)">—</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--cd);background:#34d39908">✅ Job 04 — vs dev URL</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:90px 1fr;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+      <div style="background:#111820;padding:10px 12px;display:flex;align-items:center;font-size:10px;font-weight:700;color:var(--soft);border-right:1px solid var(--border)">🔬 Integration</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--card)">
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted);border-right:1px solid var(--border)">—</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted);border-right:1px solid var(--border)">—</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--cd);background:#34d39908">✅ Job 05 — vs dev env</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:90px 1fr;border-radius:8px;overflow:hidden;border:1px solid #4ade8044">
+      <div style="background:#0a1a0e;padding:10px 12px;display:flex;align-items:center;font-size:10px;font-weight:700;color:var(--prod);border-right:1px solid #4ade8033">🩺 Smoke prod</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:#071208">
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted);border-right:1px solid var(--border)">—</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--muted);border-right:1px solid var(--border)">—</div>
+        <div style="padding:9px 10px;font-size:9px;color:var(--prod);background:#4ade8008">✅ Job 07 — vs prod URL · rollback on fail</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     WORKFLOW FILE MAP
+══════════════════════════════════════════════════════ -->
+<div class="section anim anim-6" style="margin-top:28px">
+  <div class="section-label">workflow file → branch → trigger map</div>
+
+  <div style="display:flex;flex-direction:column;gap:8px">
+
+    <div style="background:var(--card);border:1px solid #fb923c44;border-left:3px solid var(--ci);border-radius:8px;padding:12px 14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <code style="color:var(--ci);font-size:11px;font-weight:700">.github/workflows/ci.yml</code>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <span class="pill" style="background:#f59e0b22;color:var(--feature);border:1px solid #f59e0b44">on: push → feature/*</span>
+          <span class="pill" style="background:#fb923c22;color:var(--ci);border:1px solid #fb923c44">on: pull_request → main</span>
+        </div>
+      </div>
+      <div style="font-size:9px;color:var(--soft);line-height:1.8">
+        uses: bb-claw/ci-workflows/node-ci.yml@v1<br/>
+        <span style="color:var(--feature)">Push to feature:</span> lint + unit-test only (fast, ~2 min)<br/>
+        <span style="color:var(--ci)">PR → main:</span> lint + unit-test + build (push:false) — full gate<br/>
+        <span style="color:#f87171">🐳 Never pushes</span> · build job skipped on feature push to keep feedback instant
+      </div>
+    </div>
+
+    <div style="background:var(--card);border:1px solid #34d39944;border-left:3px solid var(--cd);border-radius:8px;padding:12px 14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <code style="color:var(--cd);font-size:11px;font-weight:700">.github/workflows/cd.yml</code>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <span class="pill" style="background:#22c55e22;color:var(--main);border:1px solid #22c55e44">main branch only</span>
+          <span class="pill" style="background:#34d39922;color:var(--cd);border:1px solid #34d39944">on: push → main</span>
+        </div>
+      </div>
+      <div style="font-size:9px;color:var(--soft);line-height:1.8">
+        uses: bb-claw/ci-workflows/full-pipeline.yml@v1<br/>
+        Jobs: build→push · unit-test · deploy-dev · smoke-test · integration-test · deploy-prod · smoke-test-prod<br/>
+        <span style="color:#60a5fa">🐳 Push once</span> (step 01) · Same digest used in all downstream jobs
+      </div>
+    </div>
+
+    <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:8px;padding:12px 14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <code style="color:var(--soft);font-size:11px;font-weight:700">bb-claw/ci-workflows — shared repo</code>
+        <span class="pill" style="background:#33333322;color:var(--dim);border:1px solid var(--border)">consumed by all service repos</span>
+      </div>
+      <div style="font-size:9px;color:var(--soft);line-height:1.8">
+        docker-build-push.yml · deploy-railway.yml · smoke-test.yml<br/>
+        integration-test.yml · full-pipeline.yml · node-ci.yml / python-ci.yml<br/>
+        Referenced via <code style="color:var(--cd)">uses: bb-claw/ci-workflows/...@v1</code> · versioned with semantic tags
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div style="height:40px"></div>
+</body>
+</html>

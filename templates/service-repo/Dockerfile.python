@@ -1,0 +1,75 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Dockerfile — Python service template (multi-stage)
+#
+# Stage 1 (builder): install deps into a venv so they can be copied cleanly
+# Stage 2 (runner):  minimal production image — no build tools, no pip
+#
+# Assumptions:
+#   - Web framework: FastAPI + uvicorn (swap for Flask/gunicorn as needed)
+#   - Entry point:   uvicorn app.main:app
+#   - Health endpoint: GET /health → 200 OK
+#   - Dependencies in requirements.txt
+#   - App reads PORT from environment (Railway injects this automatically)
+#
+# Customise the ARGs at the top for your service.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ARG PYTHON_VERSION=3.12
+ARG PORT=8000
+
+# ── Stage 1: build dependencies into a virtual environment ───────────────────
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+WORKDIR /app
+
+# System deps needed to compile some Python packages (remove if not needed)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+# Create venv and install deps
+COPY requirements.txt ./
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip --quiet \
+ && pip install -r requirements.txt --quiet --no-cache-dir
+
+# ── Stage 2: production runner ────────────────────────────────────────────────
+FROM python:${PYTHON_VERSION}-slim AS runner
+
+# Security: run as non-root user
+RUN addgroup --system --gid 1001 appgroup \
+ && adduser  --system --uid 1001 --ingroup appgroup appuser
+
+# Runtime system deps only (e.g. libpq for psycopg2)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy venv from builder (avoids pip and gcc in production image)
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy application source
+COPY --chown=appuser:appgroup . .
+
+USER appuser
+
+ARG PORT=8000
+ENV PORT=${PORT} \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+EXPOSE ${PORT}
+
+# Health check — matches the smoke-test.yml default path
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/health')" || exit 1
+
+# Adjust for your framework:
+#   Flask + gunicorn:  gunicorn app.main:app --bind 0.0.0.0:${PORT} --workers 2
+#   Django:            gunicorn myproject.wsgi:application --bind 0.0.0.0:${PORT}
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

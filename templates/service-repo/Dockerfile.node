@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Dockerfile — Node.js service template (multi-stage)
+#
+# Stage 1 (deps):   install only production dependencies
+# Stage 2 (build):  compile TypeScript / bundle (skip if plain JS)
+# Stage 3 (runner): minimal production image — no dev tools, no source
+#
+# Assumptions:
+#   - Entry point is  node dist/index.js  (adjust if using plain JS: node src/index.js)
+#   - Health endpoint is  GET /health → 200 OK
+#   - App reads PORT from environment (Railway injects this automatically)
+#   - package.json has a "build" script that outputs to dist/
+#
+# Customise the ARGs at the top for your service.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ARG NODE_VERSION=22
+ARG PORT=3000
+
+# ── Stage 1: install production deps ─────────────────────────────────────────
+FROM node:${NODE_VERSION}-alpine AS deps
+
+WORKDIR /app
+
+# Copy lockfile and manifests first for layer caching
+COPY package.json package-lock.json ./
+
+# Install only production dependencies
+RUN npm ci --omit=dev --ignore-scripts
+
+# ── Stage 2: build (TypeScript / bundler) ────────────────────────────────────
+FROM node:${NODE_VERSION}-alpine AS build
+
+WORKDIR /app
+
+# Install ALL deps (including devDependencies) for the build step
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+
+# Copy source and compile
+COPY . .
+RUN npm run build
+
+# ── Stage 3: production runner ────────────────────────────────────────────────
+FROM node:${NODE_VERSION}-alpine AS runner
+
+# Security: run as non-root user
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser  --system --uid 1001 appuser
+
+WORKDIR /app
+
+# Copy only what's needed to run
+COPY --from=deps  --chown=appuser:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=appuser:nodejs /app/dist         ./dist
+COPY --from=build --chown=appuser:nodejs /app/package.json ./package.json
+
+USER appuser
+
+ARG PORT=3000
+ENV PORT=${PORT} \
+    NODE_ENV=production
+
+EXPOSE ${PORT}
+
+# Health check — matches the smoke-test.yml default path
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:${PORT}/health || exit 1
+
+CMD ["node", "dist/index.js"]

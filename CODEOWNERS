@@ -1,0 +1,15 @@
+# CODEOWNERS — bb-claw/ci-workflows
+#
+# All changes to this repo affect every service repo in the organisation.
+# The platform team must review and approve every PR.
+#
+# Syntax: <pattern> <owner> [<owner> ...]
+
+# Everything requires platform team review
+*                   @bb-claw/platform
+
+# Workflow files get an extra review pass
+.github/workflows/* @bb-claw/platform @bb-claw/devops
+
+# Documentation can be approved by any org member
+docs/*              @bb-claw/platform

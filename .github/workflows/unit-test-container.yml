@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# unit-test-container.yml
+#
+# Pulls the image pushed by docker-build-push.yml (pinned by digest)
+# and runs the unit test suite inside it.
+#
+# Using the digest means the exact same artifact that will be deployed
+# is also what's being tested — no rebuild, no drift.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Unit Test (Container)
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: "Full image name (e.g. ghcr.io/bb-claw/my-service)"
+        type: string
+        required: true
+      digest:
+        description: "Image digest to pin (sha256:...)"
+        type: string
+        required: true
+      test-command:
+        description: "Command to run inside the container"
+        type: string
+        default: "npm test"
+
+jobs:
+  unit-test:
+    name: Unit Tests (container)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull image by digest
+        run: docker pull "${{ inputs.image }}@${{ inputs.digest }}"
+
+      - name: Run unit tests inside container
+        run: |
+          docker run --rm \
+            --name unit-test-runner \
+            "${{ inputs.image }}@${{ inputs.digest }}" \
+            sh -c "${{ inputs.test-command }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Unit Test Run" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: \`${{ inputs.image }}@${{ inputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Command: \`${{ inputs.test-command }}\`" >> $GITHUB_STEP_SUMMARY

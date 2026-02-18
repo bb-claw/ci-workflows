@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# actions/setup-railway/action.yml
+#
+# Composite action: installs the Railway CLI.
+# Authentication is handled by the RAILWAY_TOKEN environment variable,
+# which must be set in the calling job — not here.
+#
+# Usage in a workflow step:
+#   - uses: bb-claw/ci-workflows/.github/actions/setup-railway@v1
+# ─────────────────────────────────────────────────────────────────────────────
+name: Setup Railway CLI
+description: Installs the Railway CLI. Set RAILWAY_TOKEN env var in the calling job for auth.
+
+inputs:
+  version:
+    description: "Railway CLI version to install (default: latest)"
+    required: false
+    default: "latest"
+
+runs:
+  using: composite
+  steps:
+    - name: Install Railway CLI
+      shell: bash
+      run: |
+        echo "Installing Railway CLI (${{ inputs.version }})..."
+        if [[ "${{ inputs.version }}" == "latest" ]]; then
+          npm install -g @railway/cli --silent
+        else
+          npm install -g @railway/cli@${{ inputs.version }} --silent
+        fi
+        railway --version
+        echo "✅ Railway CLI installed"
