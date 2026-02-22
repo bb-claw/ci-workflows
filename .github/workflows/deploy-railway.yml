@@ -59,7 +59,7 @@ jobs:
 
           if [[ "${PIPELINE_DEBUG:-0}" == "1" ]]; then
             echo "🐛 DEBUG MODE ENABLED"
-            echo "  RAILWAY_TOKEN: ${RAILWAY_TOKEN:0:20}...${RAILWAY_TOKEN: -10}"
+            echo "  RAILWAY_TOKEN: ${RAILWAY_TOKEN:0:4}...${RAILWAY_TOKEN: -4}"
             echo "  SERVICE_ID:    $SERVICE_ID"
             echo "  ENVIRONMENT_ID: ${ENVIRONMENT_ID:-(not provided)}"
             echo "  GITHUB_ENVIRONMENT: ${{ inputs.environment }}"
@@ -78,10 +78,12 @@ jobs:
           fi
 
           # Find latest deployment
+          echo "-> Find latest deployment ..."
           RESPONSE=$(curl -sf https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$(jq -n --arg q "$QUERY" '{"query": $q}')")
+          echo "RESPONSE: $RESPONE"
 
           DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.data.deployments.edges[0].node.id // empty')
 
@@ -99,10 +101,12 @@ jobs:
           echo "📦 Latest deployment: $DEPLOYMENT_ID"
 
           # Trigger redeploy
+          echo "-> Trigger redeploy ..."
           RESULT=$(curl -sf https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$(jq -n --arg id "$DEPLOYMENT_ID" '{"query": "mutation { deploymentRedeploy(id: \($id)) { id status } }"}')")
+          echo "RESULT: $RESULT"
 
           STATUS=$(echo "$RESULT" | jq -r '.data.deploymentRedeploy.status // empty')
 
