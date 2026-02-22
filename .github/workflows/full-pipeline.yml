@@ -3,7 +3,8 @@
 #
 # Top-level CD orchestrator. This is the workflow service repos call.
 # Chains build → unit-test → deploy-dev → smoke-test → integration-test
-#           → [manual approval] → deploy-prod → smoke-test-prod (rollback on failure)
+#           → [manual approval] → deploy-prod → smoke-test-prod → integration-test-prod
+#           (rollback on smoke-test-prod failure)
 #
 # Usage in a service repo:
 #
@@ -183,3 +184,13 @@ jobs:
       service-id: ${{ inputs.railway-service-id-prod }}
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+
+# ── 9. INTEGRATION TESTS — vs PROD ───────────────────────────────────────────
+  integration-test-prod:
+    needs: smoke-test-prod
+    uses: bb-claw/ci-workflows/.github/workflows/integration-test.yml@v1
+    with:
+      api-base-url: ${{ inputs.prod-url }}
+      test-command: ${{ inputs.integration-test-command }}
+      node-version: ${{ inputs.node-version }}
+      package-manager: ${{ inputs.package-manager }}
