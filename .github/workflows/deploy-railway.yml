@@ -75,27 +75,20 @@ jobs:
           echo ""
 
           SERVICE_ID="${{ inputs.service-id }}"
-          PROJECT_ID="${{ inputs.project-id }}"
-          ENVIRONMENT_ID="${{ inputs.environment-id }}"
 
-          # Build redeploy command with global flags
-          CMD="railway redeploy --service \"$SERVICE_ID\" --yes"
-
-          # Add project ID if provided
-          if [[ -n "$PROJECT_ID" ]]; then
-            echo "📍 Using project: $PROJECT_ID"
-            CMD="$CMD --project \"$PROJECT_ID\""
+          # Debug: Show context (project/environment IDs provided, but not used in redeploy command)
+          if [[ -n "${{ inputs.project-id }}" ]]; then
+            echo "📍 Project ID provided (context): ${{ inputs.project-id }}"
+          fi
+          if [[ -n "${{ inputs.environment-id }}" ]]; then
+            echo "📍 Environment ID provided (context): ${{ inputs.environment-id }}"
           fi
 
-          # Add environment ID if provided
-          if [[ -n "$ENVIRONMENT_ID" ]]; then
-            echo "📍 Using environment: $ENVIRONMENT_ID"
-            CMD="$CMD --environment \"$ENVIRONMENT_ID\""
-          fi
-
-          # Execute redeploy with constructed command
-          echo "▶️ Executing: $CMD"
-          eval "$CMD" || {
+          # Execute redeploy with only supported flags
+          # Note: railway redeploy only accepts --service and --yes
+          # Project/environment context is handled by RAILWAY_TOKEN scope
+          echo "▶️ Executing: railway redeploy --service \"$SERVICE_ID\" --yes"
+          railway redeploy --service "$SERVICE_ID" --yes || {
             echo ""
             echo "❌ Redeploy command failed"
             echo ""
