@@ -48,6 +48,16 @@ on:
         type: string
         required: false
         default: ""
+      railway-environment-id-dev:
+        description: "Railway environment ID for dev (optional, may be required for some tokens)"
+        type: string
+        required: false
+        default: ""
+      railway-environment-id-prod:
+        description: "Railway environment ID for prod (optional, may be required for some tokens)"
+        type: string
+        required: false
+        default: ""
       dockerfile:
         description: "Path to Dockerfile relative to repo root"
         type: string
@@ -120,6 +130,7 @@ jobs:
     with:
       service-id: ${{ inputs.railway-service-id-dev }}
       project-id: ${{ inputs.railway-project-id-dev }}
+      environment-id: ${{ inputs.railway-environment-id-dev }}
       environment: dev
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
@@ -158,6 +169,7 @@ jobs:
     with:
       service-id: ${{ inputs.railway-service-id-prod }}
       project-id: ${{ inputs.railway-project-id-prod }}
+      environment-id: ${{ inputs.railway-environment-id-prod }}
       environment: production
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
