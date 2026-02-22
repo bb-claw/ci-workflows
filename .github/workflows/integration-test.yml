@@ -44,6 +44,10 @@ on:
         description: "Maximum minutes to allow for the test run"
         type: number
         default: 15
+    secrets:
+      RAILWAY_TOKEN_DEV:
+        description: "Railway API token for dev environment (optional, for tests that need it)"
+        required: false
 
 jobs:
   integration-test:
