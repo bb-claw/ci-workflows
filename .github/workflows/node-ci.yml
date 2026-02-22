@@ -42,6 +42,10 @@ on:
         description: "Command to run unit tests"
         type: string
         default: ""
+      test-script:
+        description: "Path to custom smoke test script"
+        type: string
+        default: "scripts/smoke.sh"
       build-enabled:
         description: "Whether to run the Docker build validation job. Set false on feature pushes for speed."
         type: boolean
@@ -116,11 +120,49 @@ jobs:
           esac
 
       - name: Run smoke tests (extensible)
-        uses: ./.github/actions/smoke-test
-        with:
-          test-command: ${{ inputs.test-command }}
-          test-script: "scripts/smoke.sh"
-          package-manager: ${{ inputs.package-manager }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Priority 1: Explicit test-command
+          if [[ -n "${{ inputs.test-command }}" ]]; then
+            echo "🧪 Running custom test command..."
+            eval "${{ inputs.test-command }}"
+            exit $?
+          fi
+
+          # Priority 2: Repository-specific smoke test script
+          if [[ -f "${{ inputs.test-script }}" ]]; then
+            echo "🧪 Running custom smoke test script: ${{ inputs.test-script }}"
+            bash "${{ inputs.test-script }}"
+            exit $?
+          fi
+
+          # Priority 3: Default basic smoke test (all repos)
+          echo "🧪 Running default basic smoke test..."
+          {
+            echo "## Smoke Test Results"
+            echo ""
+            echo "| Check | Status |"
+            echo "|-------|--------|"
+
+            if [[ -f package.json ]]; then
+              echo "| package.json | ✅ |"
+            else
+              echo "| package.json | ❌ Missing |"
+              exit 1
+            fi
+
+            if [[ -d src ]]; then
+              echo "| src/ directory | ✅ |"
+            else
+              echo "| src/ directory | ⚠️ (optional) |"
+            fi
+
+            echo "| Basic smoke test | ✅ |"
+            echo ""
+            echo "All checks passed!"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
   # ── Docker build validation (PR only — push: false) ───────────────────────
   build-validate:
