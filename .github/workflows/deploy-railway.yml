@@ -113,14 +113,50 @@ jobs:
           echo "RESULT: $RESULT"
 
           STATUS=$(echo "$RESULT" | jq -r '.data.deploymentRedeploy.status // empty')
+          NEW_DEPLOYMENT_ID=$(echo "$RESULT" | jq -r '.data.deploymentRedeploy.id // empty')
 
-          if [[ -z "$STATUS" ]]; then
+          if [[ -z "$STATUS" || -z "$NEW_DEPLOYMENT_ID" ]]; then
             echo "❌ Redeploy failed"
             echo "   Response: $RESULT"
             exit 1
           fi
 
-          echo "✅ Redeploy triggered — status: $STATUS"
+          echo "✅ Redeploy triggered — status: $STATUS (deployment: $NEW_DEPLOYMENT_ID)"
+
+          # Wait for deployment to reach SUCCESS (max 90s, poll every 5s)
+          echo ""
+          echo "-> Waiting for deployment to become healthy ..."
+          MAX_WAIT=90
+          INTERVAL=5
+          ELAPSED=0
+          while [[ $ELAPSED -lt $MAX_WAIT ]]; do
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+
+            STATUS_RESPONSE=$(curl -sf https://backboard.railway.com/graphql/v2 \
+              -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg id "$NEW_DEPLOYMENT_ID" '{"query": "query { deployment(id: \($id)) { id status } }"}')")
+
+            CURRENT_STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.data.deployment.status // empty')
+            echo "   [${ELAPSED}s] status: ${CURRENT_STATUS}"
+
+            if [[ "$CURRENT_STATUS" == "SUCCESS" ]]; then
+              echo ""
+              echo "✅ Deployment healthy after ${ELAPSED}s"
+              break
+            elif [[ "$CURRENT_STATUS" == "FAILED" || "$CURRENT_STATUS" == "CRASHED" || "$CURRENT_STATUS" == "REMOVED" ]]; then
+              echo ""
+              echo "❌ Deployment ended with status: $CURRENT_STATUS"
+              exit 1
+            fi
+          done
+
+          if [[ "$CURRENT_STATUS" != "SUCCESS" ]]; then
+            echo ""
+            echo "❌ Deployment did not reach SUCCESS within ${MAX_WAIT}s (last status: ${CURRENT_STATUS})"
+            exit 1
+          fi
 
       - name: Summary
         run: |
@@ -133,5 +169,5 @@ jobs:
             if [[ -n "${{ inputs.environment-id }}" ]]; then
               echo "| **Environment ID** | \`${{ inputs.environment-id }}\` |"
             fi
-            echo "| **Status** | ✅ Redeployment triggered |"
+            echo "| **Status** | ✅ Deployed and healthy |"
           } >> "$GITHUB_STEP_SUMMARY"
