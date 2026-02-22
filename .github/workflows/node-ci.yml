@@ -116,7 +116,7 @@ jobs:
           esac
 
       - name: Run smoke tests (extensible)
-        uses: bb-claw/ci-workflows/.github/actions/smoke-test@v2
+        uses: ./.github/actions/smoke-test
         with:
           test-command: ${{ inputs.test-command }}
           test-script: "scripts/smoke.sh"
