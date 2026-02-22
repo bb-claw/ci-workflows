@@ -3,7 +3,7 @@
 #
 # Top-level CD orchestrator. This is the workflow service repos call.
 # Chains build → unit-test → deploy-dev → smoke-test → integration-test
-#           → deploy-prod → smoke-test-prod (rollback on failure)
+#           → [manual approval] → deploy-prod → smoke-test-prod (rollback on failure)
 #
 # Usage in a service repo:
 #
@@ -132,9 +132,17 @@ jobs:
       package-manager: ${{ inputs.package-manager }}
     secrets: inherit
 
-# ── 6. DEPLOY PRODUCTION (automatic — tests are the gate) ────────────────────
+# ── 6. APPROVAL — PRODUCTION (manual approval required) ────────────────────
+  approval-prod:
+    needs: integration-test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "Manual approval required before prod deployment"
+
+# ── 7. DEPLOY PRODUCTION (manual approval gate) ──────────────────────────────
   deploy-prod:
-    needs: [build, integration-test]
+    needs: [build, approval-prod]
     uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@v1
     with:
       service-id: ${{ inputs.railway-service-id-prod }}
@@ -142,7 +150,7 @@ jobs:
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
 
-# ── 7. SMOKE TEST — PROD (rollback on failure) ───────────────────────────────
+# ── 8. SMOKE TEST — PROD (rollback on failure) ───────────────────────────────
   smoke-test-prod:
     needs: deploy-prod
     uses: bb-claw/ci-workflows/.github/workflows/smoke-test.yml@v1

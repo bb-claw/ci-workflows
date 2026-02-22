@@ -42,15 +42,42 @@ jobs:
 
       - name: Run shellcheck on scripts
         run: |
+          set -euo pipefail
+          EXIT_CODE=0
+
+          # Check inline shell scripts in composite actions
+          if [[ -d .github/actions ]]; then
+            for action in .github/actions/*/action.yml; do
+              if [[ ! -f "$action" ]]; then
+                continue
+              fi
+
+              echo "Checking $action..."
+
+              # Extract bash run blocks and check them
+              # yq extracts run steps, shellcheck validates them
+              yq -r '.runs.steps[]? | select(.run != null) | .run' "$action" 2>/dev/null | while read -r script; do
+                if [[ -n "$script" ]]; then
+                  echo "$script" | shellcheck -s bash - || EXIT_CODE=1
+                fi
+              done
+            done
+          fi
+
           # Check any standalone shell scripts
           shopt -s nullglob
           scripts=(scripts/*.sh)
           if [[ ${#scripts[@]} -gt 0 ]]; then
-            shellcheck "${scripts[@]}"
+            shellcheck "${scripts[@]}" || EXIT_CODE=1
           else
             echo "No standalone shell scripts found - skipping"
           fi
-          echo "✅ Shellcheck passed"
+
+          if [[ $EXIT_CODE -eq 0 ]]; then
+            echo "✅ Shellcheck passed"
+          fi
+
+          exit $EXIT_CODE
 
   # ── YAML validity ──────────────────────────────────────────────────────────
   yaml-lint:
