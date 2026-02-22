@@ -108,7 +108,6 @@ jobs:
     uses: bb-claw/ci-workflows/.github/workflows/docker-build-push.yml@v1
     with:
       dockerfile: ${{ inputs.dockerfile }}
-    secrets: inherit
     permissions:
       contents: read
       packages: write
@@ -121,7 +120,6 @@ jobs:
       image: ${{ needs.build.outputs.image }}
       digest: ${{ needs.build.outputs.digest }}
       test-command: ${{ inputs.unit-test-command }}
-    secrets: inherit
 
 # ── 3. DEPLOY DEV ────────────────────────────────────────────────────────────
   deploy-dev:
@@ -152,7 +150,8 @@ jobs:
       test-command: ${{ inputs.integration-test-command }}
       node-version: ${{ inputs.node-version }}
       package-manager: ${{ inputs.package-manager }}
-    secrets: inherit
+    secrets:
+      RAILWAY_TOKEN_DEV: ${{ secrets.RAILWAY_TOKEN_DEV }}
 
 # ── 6. APPROVAL — PRODUCTION (manual approval required) ────────────────────
   approval-prod:
