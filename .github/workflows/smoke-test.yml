@@ -103,11 +103,13 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "## Smoke Test" >> "$GITHUB_STEP_SUMMARY"
-          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **URL** | \`${{ inputs.url }}${{ inputs.health-check-path }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Result** | ${{ steps.health-check.outputs.healthy == 'true' && '✅ Healthy' || '❌ Failed' }} |" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "${{ inputs.rollback-on-failure }}" == "true" && "${{ steps.health-check.outputs.healthy }}" != "true" ]]; then
-            echo "| **Action** | ⏪ Rollback triggered |" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "## Smoke Test"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **URL** | \`${{ inputs.url }}${{ inputs.health-check-path }}\` |"
+            echo "| **Result** | ${{ steps.health-check.outputs.healthy == 'true' && '✅ Healthy' || '❌ Failed' }} |"
+            if [[ "${{ inputs.rollback-on-failure }}" == "true" && "${{ steps.health-check.outputs.healthy }}" != "true" ]]; then
+              echo "| **Action** | ⏪ Rollback triggered |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

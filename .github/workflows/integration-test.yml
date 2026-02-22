@@ -69,8 +69,10 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "## Integration Tests" >> "$GITHUB_STEP_SUMMARY"
-          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Target** | \`${{ inputs.api-base-url }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Command** | \`${{ inputs.test-command }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Integration Tests"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Target** | \`${{ inputs.api-base-url }}\` |"
+            echo "| **Command** | \`${{ inputs.test-command }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -54,6 +54,8 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "## Unit Test Run" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Image: \`${{ inputs.image }}@${{ inputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Command: \`${{ inputs.test-command }}\`" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Unit Test Run"
+            echo "- Image: \`${{ inputs.image }}@${{ inputs.digest }}\`"
+            echo "- Command: \`${{ inputs.test-command }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

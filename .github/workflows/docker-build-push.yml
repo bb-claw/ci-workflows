@@ -102,9 +102,11 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## Docker Image" >> "$GITHUB_STEP_SUMMARY"
-          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Image** | \`${{ steps.image-name.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Digest** | \`${{ steps.build-push.outputs.digest }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Tags** | \`${{ steps.meta.outputs.tags }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Docker Image"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Image** | \`${{ steps.image-name.outputs.image }}\` |"
+            echo "| **Digest** | \`${{ steps.build-push.outputs.digest }}\` |"
+            echo "| **Tags** | \`${{ steps.meta.outputs.tags }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
