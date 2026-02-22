@@ -148,8 +148,6 @@ jobs:
       test-command: ${{ inputs.integration-test-command }}
       node-version: ${{ inputs.node-version }}
       package-manager: ${{ inputs.package-manager }}
-    secrets:
-      RAILWAY_TOKEN_DEV: ${{ secrets.RAILWAY_TOKEN_DEV }}
 
 # ── 6. APPROVAL — PRODUCTION (manual approval required) ────────────────────
   approval-prod:
