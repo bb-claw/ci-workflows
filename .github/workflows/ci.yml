@@ -124,6 +124,7 @@ jobs:
             ".github/actions/setup-railway/action.yml"
             ".github/actions/health-check/action.yml"
             ".github/actions/notify-slack/action.yml"
+            ".github/actions/smoke-test/action.yml"
             "templates/service-repo/.github/workflows/ci.yml"
             "templates/service-repo/.github/workflows/cd.yml"
             "docs/onboarding.md"

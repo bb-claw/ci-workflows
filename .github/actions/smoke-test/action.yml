@@ -1,0 +1,65 @@
+name: Smoke Test
+description: Extensible smoke test runner — bash-based with per-repo customization
+
+inputs:
+  test-command:
+    description: "Custom test command (overrides default and test-script)"
+    required: false
+    default: ""
+  test-script:
+    description: "Path to custom smoke test script (used if test-command empty)"
+    required: false
+    default: "scripts/smoke.sh"
+  package-manager:
+    description: "Package manager context (npm, pnpm, yarn) for default fallback"
+    required: false
+    default: "npm"
+
+runs:
+  using: composite
+  steps:
+    - name: Run smoke tests
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Priority 1: Explicit test-command
+        if [[ -n "${{ inputs.test-command }}" ]]; then
+          echo "🧪 Running custom test command..."
+          eval "${{ inputs.test-command }}"
+          exit $?
+        fi
+
+        # Priority 2: Repository-specific smoke test script
+        if [[ -f "${{ inputs.test-script }}" ]]; then
+          echo "🧪 Running custom smoke test script: ${{ inputs.test-script }}"
+          bash "${{ inputs.test-script }}"
+          exit $?
+        fi
+
+        # Priority 3: Default basic smoke test (all repos)
+        echo "🧪 Running default basic smoke test..."
+        {
+          echo "## Smoke Test Results"
+          echo ""
+          echo "| Check | Status |"
+          echo "|-------|--------|"
+
+          # Basic structure checks
+          if [[ -f package.json ]]; then
+            echo "| package.json | ✅ |"
+          else
+            echo "| package.json | ❌ Missing |"
+            exit 1
+          fi
+
+          if [[ -d src ]]; then
+            echo "| src/ directory | ✅ |"
+          else
+            echo "| src/ directory | ⚠️ (optional) |"
+          fi
+
+          echo "| Basic smoke test | ✅ |"
+          echo ""
+          echo "All checks passed!"
+        } | tee -a "$GITHUB_STEP_SUMMARY"
