@@ -116,7 +116,7 @@ jobs:
 # ── 3. DEPLOY DEV ────────────────────────────────────────────────────────────
   deploy-dev:
     needs: [build, unit-test]
-    uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@v1
+    uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@main
     with:
       service-id: ${{ inputs.railway-service-id-dev }}
       project-id: ${{ inputs.railway-project-id-dev }}
@@ -154,7 +154,7 @@ jobs:
 # ── 7. DEPLOY PRODUCTION (manual approval gate) ──────────────────────────────
   deploy-prod:
     needs: [build, approval-prod]
-    uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@v1
+    uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@main
     with:
       service-id: ${{ inputs.railway-service-id-prod }}
       project-id: ${{ inputs.railway-project-id-prod }}
