@@ -78,26 +78,26 @@ jobs:
           PROJECT_ID="${{ inputs.project-id }}"
           ENVIRONMENT_ID="${{ inputs.environment-id }}"
 
-          # Step 1: If project ID provided, select it
+          # Step 1: If project ID provided, switch to it
           if [[ -n "$PROJECT_ID" ]]; then
-            echo "📍 Selecting project: $PROJECT_ID"
-            railway project select "$PROJECT_ID" || {
-              echo "❌ Failed to select project"
+            echo "📍 Switching to project: $PROJECT_ID"
+            railway project switch "$PROJECT_ID" || {
+              echo "❌ Failed to switch project"
               exit 1
             }
           fi
 
-          # Step 2: If environment ID provided, select it
+          # Step 2: If environment ID provided, switch to it
           if [[ -n "$ENVIRONMENT_ID" ]]; then
-            echo "📍 Selecting environment: $ENVIRONMENT_ID"
-            railway environment select "$ENVIRONMENT_ID" || {
-              echo "❌ Failed to select environment"
+            echo "📍 Switching to environment: $ENVIRONMENT_ID"
+            railway environment switch "$ENVIRONMENT_ID" || {
+              echo "❌ Failed to switch environment"
               exit 1
             }
           fi
 
           # Step 3: Trigger redeploy with only service ID and yes flag
-          echo "▶️ Executing: railway redeploy --service $SERVICE_ID --yes"
+          echo "▶️ Executing: railway redeploy --service=\"$SERVICE_ID\" --yes"
           railway redeploy --service "$SERVICE_ID" --yes || {
             echo ""
             echo "❌ Redeploy command failed"
