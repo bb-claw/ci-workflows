@@ -1,17 +1,18 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # deploy-railway.yml
 #
-# Triggers a Railway service redeployment. Railway pulls the latest image
-# from ghcr.io (the same digest built by docker-build-push.yml).
+# Triggers a Railway service redeployment via the Railway GraphQL API.
+# Finds the latest deployment for the given service + environment, then
+# calls deploymentRedeploy to trigger a fresh rollout.
 #
 # Prerequisites:
-#   - Railway service must be configured to use a Docker image source
-#     pointing to ghcr.io/bb-claw/<service-name>
-#   - RAILWAY_TOKEN secret must be scoped to the correct project + environment
+#   - RAILWAY_TOKEN must be a Railway API token (from railway.com → Account Settings → Tokens)
+#   - environment-id must match the Railway environment containing the service
 #
 # Inputs:
-#   service-id    — Railway service ID (from Railway dashboard → service settings)
-#   environment   — GitHub environment name ("dev" or "production")
+#   service-id     — Railway service ID (from Railway dashboard → service settings)
+#   environment-id — Railway environment ID (required for targeting the right deployment)
+#   environment    — GitHub environment name ("dev" or "production")
 # ─────────────────────────────────────────────────────────────────────────────
 name: Deploy to Railway
 
@@ -23,11 +24,11 @@ on:
         type: string
         required: true
       project-id:
-        description: "Railway project ID (optional, may be required for some tokens)"
+        description: "Railway project ID (unused, kept for backwards compatibility)"
         type: string
         required: false
       environment-id:
-        description: "Railway environment ID (optional, may be required for some tokens)"
+        description: "Railway environment ID — required to target the correct deployment"
         type: string
         required: false
       environment:
@@ -46,183 +47,72 @@ jobs:
       name: ${{ inputs.environment }}
 
     steps:
-      - name: Install Railway CLI
-        uses: bb-claw/ci-workflows/.github/actions/setup-railway@v1
-
-      - name: Validate Railway Token & Service Access
+      - name: Trigger redeployment via Railway API
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           PIPELINE_DEBUG: ${{ vars.PIPELINE_DEBUG || '0' }}
         run: |
-          set -e
+          set -euo pipefail
 
           SERVICE_ID="${{ inputs.service-id }}"
+          ENVIRONMENT_ID="${{ inputs.environment-id }}"
 
-          # Debug output if PIPELINE_DEBUG is set to 1
-          if [[ "${PIPELINE_DEBUG}" == "1" ]]; then
+          if [[ "${PIPELINE_DEBUG:-0}" == "1" ]]; then
             echo "🐛 DEBUG MODE ENABLED"
-            echo ""
-            echo "Environment Variables:"
             echo "  RAILWAY_TOKEN: ${RAILWAY_TOKEN:0:20}...${RAILWAY_TOKEN: -10}"
-            echo "  SERVICE_ID: $SERVICE_ID"
-            echo "  PROJECT_ID: ${{ inputs.project-id || '(not provided)' }}"
-            echo "  ENVIRONMENT_ID: ${{ inputs.environment-id || '(not provided)' }}"
-            echo "  GITHUB_ENVIRONMENT: ${{ inputs.environment || '(not set)' }}"
-            echo ""
-            echo "Railway CLI Version:"
-            railway --version || echo "  (railway cli not installed)"
+            echo "  SERVICE_ID:    $SERVICE_ID"
+            echo "  ENVIRONMENT_ID: ${ENVIRONMENT_ID:-(not provided)}"
+            echo "  GITHUB_ENVIRONMENT: ${{ inputs.environment }}"
             echo ""
           fi
 
-          echo "🔍 Validating Railway token and service access..."
+          echo "🚀 Triggering redeployment for service: $SERVICE_ID"
+          echo "   Environment: ${{ inputs.environment }} ($ENVIRONMENT_ID)"
           echo ""
 
-          # Step 1: Verify token is valid
-          echo "1️⃣ Checking token validity with 'railway whoami'..."
-          if ! WHOAMI_OUTPUT=$(railway whoami 2>&1); then
-            echo "❌ TOKEN INVALID: railway whoami failed"
-            echo "Error: $WHOAMI_OUTPUT"
-            echo ""
-
-            if [[ "${PIPELINE_DEBUG}" == "1" ]]; then
-              echo "🐛 DEBUG: Full error output:"
-              echo "  $WHOAMI_OUTPUT"
-              echo ""
-              echo "🐛 DEBUG: Token details:"
-              echo "  Token length: ${#RAILWAY_TOKEN}"
-              echo "  Token prefix: ${RAILWAY_TOKEN:0:10}..."
-              echo "  Token suffix: ...${RAILWAY_TOKEN: -10}"
-              echo ""
-            fi
-
-            echo "⚠️ RAILWAY_TOKEN is either:"
-            echo "  - Expired (regenerate in Railway dashboard)"
-            echo "  - Invalid format"
-            echo "  - Missing from GitHub Secrets"
-            echo ""
-            echo "🔧 To enable debug output:"
-            echo "  1. Set GitHub Variable: PIPELINE_DEBUG=1"
-            echo "  2. Push to main to trigger pipeline"
-            echo "  3. Check logs for full environment details"
-            exit 1
-          fi
-          echo "✅ Token is valid"
-          echo "User: $WHOAMI_OUTPUT"
-          echo ""
-
-          # Step 2: List available services
-          echo "2️⃣ Listing available services..."
-          if ! SERVICE_LIST=$(railway service list --json 2>&1); then
-            echo "❌ SERVICE LIST FAILED: Cannot list services"
-            echo "Error: $SERVICE_LIST"
-            exit 1
-          fi
-          echo "✅ Services found"
-          echo ""
-
-          # Step 3: Check if target service exists
-          echo "3️⃣ Checking if service $SERVICE_ID exists..."
-          if echo "$SERVICE_LIST" | jq -e ".[] | select(.id == \"$SERVICE_ID\")" > /dev/null 2>&1; then
-            echo "✅ Service found and accessible"
-            SERVICE_INFO=$(echo "$SERVICE_LIST" | jq ".[] | select(.id == \"$SERVICE_ID\")")
-            echo "Service info:"
-            echo "$SERVICE_INFO" | jq '.'
+          # Build deployments query — filter by environmentId if provided
+          if [[ -n "$ENVIRONMENT_ID" ]]; then
+            QUERY='query { deployments(first: 1, input: { serviceId: "'"$SERVICE_ID"'", environmentId: "'"$ENVIRONMENT_ID"'" }) { edges { node { id status } } } }'
           else
-            echo "❌ SERVICE NOT FOUND OR NOT ACCESSIBLE"
-            echo "Service ID: $SERVICE_ID"
-            echo "Available services:"
-            echo "$SERVICE_LIST" | jq '.[] | {id: .id, name: .name, status: .status}'
+            QUERY='query { deployments(first: 1, input: { serviceId: "'"$SERVICE_ID"'" }) { edges { node { id status } } } }'
+          fi
+
+          # Find latest deployment
+          RESPONSE=$(curl -sf https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg q "$QUERY" '{"query": $q}')")
+
+          DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.data.deployments.edges[0].node.id // empty')
+
+          if [[ -z "$DEPLOYMENT_ID" ]]; then
+            echo "❌ No deployment found for service $SERVICE_ID"
+            echo "   Response: $RESPONSE"
             echo ""
             echo "⚠️ POSSIBLE CAUSES:"
-            echo "  - Service ID is wrong"
-            echo "  - Token doesn't have access to this service"
-            echo "  - Service exists in different project/environment"
+            echo "  - RAILWAY_TOKEN is invalid or expired (check Railway dashboard → Account → Tokens)"
+            echo "  - SERVICE_ID or ENVIRONMENT_ID is wrong"
+            echo "  - Service has never been deployed"
             exit 1
           fi
-          echo ""
 
-          # Step 4: Show context
-          echo "4️⃣ Deployment context:"
-          echo "  Service ID: $SERVICE_ID"
-          [[ -n "${{ inputs.project-id }}" ]] && echo "  Project ID: ${{ inputs.project-id }}"
-          [[ -n "${{ inputs.environment-id }}" ]] && echo "  Environment ID: ${{ inputs.environment-id }}"
-          echo ""
-          echo "✅ All validation checks passed. Ready to redeploy."
+          echo "📦 Latest deployment: $DEPLOYMENT_ID"
 
-      - name: Trigger redeployment
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          set -e
+          # Trigger redeploy
+          RESULT=$(curl -sf https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg id "$DEPLOYMENT_ID" '{"query": "mutation { deploymentRedeploy(id: \($id)) { id status } }"}')")
 
-          echo "🚀 Triggering redeployment for service: ${{ inputs.service-id }}"
-          echo ""
+          STATUS=$(echo "$RESULT" | jq -r '.data.deploymentRedeploy.status // empty')
 
-          SERVICE_ID="${{ inputs.service-id }}"
-
-          # Debug: Show context (project/environment IDs provided, but not used in redeploy command)
-          if [[ -n "${{ inputs.project-id }}" ]]; then
-            echo "📍 Project ID provided (context): ${{ inputs.project-id }}"
-          fi
-          if [[ -n "${{ inputs.environment-id }}" ]]; then
-            echo "📍 Environment ID provided (context): ${{ inputs.environment-id }}"
-          fi
-
-          # Execute redeploy with only supported flags
-          # Note: railway redeploy only accepts --service and --yes
-          # Project/environment context is handled by RAILWAY_TOKEN scope
-          echo "▶️ Executing: railway redeploy --service \"$SERVICE_ID\" --yes"
-          if ! REDEPLOY_OUTPUT=$(railway redeploy --service "$SERVICE_ID" --yes 2>&1); then
-            echo ""
-            echo "❌ Redeploy command failed"
-            echo "Error output:"
-            echo "$REDEPLOY_OUTPUT"
-            echo ""
-            echo "⚠️ COMMON CAUSES:"
-            if echo "$REDEPLOY_OUTPUT" | grep -q "Invalid RAILWAY_TOKEN"; then
-              echo "  - RAILWAY_TOKEN is invalid or expired"
-              echo "  - Token doesn't have access to this project/environment"
-              echo "  - Action: Regenerate token in Railway dashboard"
-            elif echo "$REDEPLOY_OUTPUT" | grep -q "not found"; then
-              echo "  - Service ID is incorrect"
-              echo "  - Service doesn't exist in this project/environment"
-            else
-              echo "  - Unknown error (see output above)"
-            fi
+          if [[ -z "$STATUS" ]]; then
+            echo "❌ Redeploy failed"
+            echo "   Response: $RESULT"
             exit 1
           fi
-          echo ""
-          echo "Redeploy output:"
-          echo "$REDEPLOY_OUTPUT"
 
-          echo ""
-          echo "✅ Redeploy command executed successfully"
-
-      - name: Wait for deployment
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          echo "⏳ Waiting for deployment to start..."
-
-          SERVICE_ID="${{ inputs.service-id }}"
-          MAX_WAIT=30
-          POLL_INTERVAL=2
-
-          for i in $(seq 1 $((MAX_WAIT / POLL_INTERVAL))); do
-            STATUS=$(railway service list --json 2>/dev/null | \
-              jq -r ".[] | select(.id == \"$SERVICE_ID\") | .status" 2>/dev/null || echo "unknown")
-
-            echo "[$i/$((MAX_WAIT / POLL_INTERVAL))] Status: $STATUS"
-
-            if [[ "$STATUS" == "BUILDING" || "$STATUS" == "DEPLOYING" || "$STATUS" == "CRASHED" ]]; then
-              echo "✅ Deployment detected — service is $STATUS"
-              exit 0
-            fi
-
-            sleep $POLL_INTERVAL
-          done
-
-          echo "⚠️ Could not detect deployment status (may be queued)"
+          echo "✅ Redeploy triggered — status: $STATUS"
 
       - name: Summary
         run: |
@@ -232,9 +122,6 @@ jobs:
             echo "|---|---|"
             echo "| **Environment** | \`${{ inputs.environment }}\` |"
             echo "| **Service ID** | \`${{ inputs.service-id }}\` |"
-            if [[ -n "${{ inputs.project-id }}" ]]; then
-              echo "| **Project ID** | \`${{ inputs.project-id }}\` |"
-            fi
             if [[ -n "${{ inputs.environment-id }}" ]]; then
               echo "| **Environment ID** | \`${{ inputs.environment-id }}\` |"
             fi
