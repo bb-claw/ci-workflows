@@ -114,6 +114,7 @@ jobs:
 
           STATUS=$(echo "$RESULT" | jq -r '.data.deploymentRedeploy.status // empty')
           NEW_DEPLOYMENT_ID=$(echo "$RESULT" | jq -r '.data.deploymentRedeploy.id // empty')
+          echo "NEW_DEPLOYMENT_ID: $NEW_DEPLOYMENT_ID"
 
           if [[ -z "$STATUS" || -z "$NEW_DEPLOYMENT_ID" ]]; then
             echo "❌ Redeploy failed"
@@ -136,7 +137,10 @@ jobs:
             STATUS_RESPONSE=$(curl -sf https://backboard.railway.com/graphql/v2 \
               -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
               -H "Content-Type: application/json" \
-              -d "$(jq -n --arg id "$NEW_DEPLOYMENT_ID" '{"query": "query { deployment(id: \($id)) { id status } }"}')")
+              -d '{
+                "query": "query { deployment(id: \"'"${NEW_DEPLOYMENT_ID}"'\") { id status } }"
+              }')
+            echo "STATUS_RESPONSE: $STATUS_RESPONSE"
 
             CURRENT_STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.data.deployment.status // empty')
             echo "   [${ELAPSED}s] status: ${CURRENT_STATUS}"
