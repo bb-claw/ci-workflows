@@ -46,17 +46,23 @@ jobs:
           EXIT_CODE=0
 
           # Check inline shell scripts in composite actions
-          for action in .github/actions/*/action.yml; do
-            echo "Checking $action..."
-
-            # Extract bash run blocks and check them
-            # yq extracts run steps, shellcheck validates them
-            yq -r '.runs.steps[].run // empty' "$action" | while read -r script; do
-              if [[ -n "$script" ]]; then
-                echo "$script" | shellcheck -s bash -e SC2086 - || EXIT_CODE=1
+          if [[ -d .github/actions ]]; then
+            for action in .github/actions/*/action.yml; do
+              if [[ ! -f "$action" ]]; then
+                continue
               fi
+
+              echo "Checking $action..."
+
+              # Extract bash run blocks and check them
+              # yq extracts run steps, shellcheck validates them
+              yq -r '.runs.steps[]? | select(.run != null) | .run' "$action" 2>/dev/null | while read -r script; do
+                if [[ -n "$script" ]]; then
+                  echo "$script" | shellcheck -s bash - || EXIT_CODE=1
+                fi
+              done
             done
-          done
+          fi
 
           exit $EXIT_CODE
 
