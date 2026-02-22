@@ -22,6 +22,14 @@ on:
         description: "Path to check (default: /health)"
         type: string
         default: "/health"
+      version-check-path:
+        description: "Path to version endpoint (default: /version) - optional for deployment verification"
+        type: string
+        default: "/version"
+      verify-deployment:
+        description: "Verify that deployment actually happened (requires version endpoint)"
+        type: boolean
+        default: false
       max-retries:
         description: "Maximum number of retry attempts"
         type: number
@@ -84,6 +92,41 @@ jobs:
           echo "healthy=false" >> "$GITHUB_OUTPUT"
           exit 1
 
+      - name: Check version before deployment (verification only)
+        if: ${{ inputs.verify-deployment }}
+        id: version-before
+        run: |
+          URL="${{ inputs.url }}${{ inputs.version-check-path }}"
+          echo "Fetching version from $URL"
+
+          VERSION=$(curl -s "$URL" | jq -r '.git_sha_short // "unknown"' 2>/dev/null || echo "unknown")
+          echo "Current deployed version: $VERSION"
+          echo "version_before=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check version after deployment (verification only)
+        if: ${{ inputs.verify-deployment && steps.health-check.outputs.healthy == 'true' }}
+        id: version-after
+        run: |
+          URL="${{ inputs.url }}${{ inputs.version-check-path }}"
+          VERSION=$(curl -s "$URL" | jq -r '.git_sha_short // "unknown"' 2>/dev/null || echo "unknown")
+          echo "New deployed version: $VERSION"
+          echo "version_after=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify deployment actually happened
+        if: ${{ inputs.verify-deployment && steps.health-check.outputs.healthy == 'true' }}
+        run: |
+          BEFORE="${{ steps.version-before.outputs.version_before }}"
+          AFTER="${{ steps.version-after.outputs.version_after }}"
+
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "❌ DEPLOYMENT FAILED: Version unchanged ($BEFORE)"
+            echo "The service responded but the version did not change."
+            echo "This indicates the redeploy command did not actually trigger."
+            exit 1
+          fi
+
+          echo "✅ Deployment verified: $BEFORE → $AFTER"
+
       # Rollback if this is the prod smoke test and it failed
       - name: Install Railway CLI (rollback)
         if: ${{ failure() && inputs.rollback-on-failure }}
@@ -109,6 +152,10 @@ jobs:
             echo "|---|---|"
             echo "| **URL** | \`${{ inputs.url }}${{ inputs.health-check-path }}\` |"
             echo "| **Result** | ${{ steps.health-check.outputs.healthy == 'true' && '✅ Healthy' || '❌ Failed' }} |"
+            if [[ "${{ inputs.verify-deployment }}" == "true" ]]; then
+              echo "| **Before** | \`${{ steps.version-before.outputs.version_before }}\` |"
+              echo "| **After** | \`${{ steps.version-after.outputs.version_after }}\` |"
+            fi
             if [[ "${{ inputs.rollback-on-failure }}" == "true" && "${{ steps.health-check.outputs.healthy }}" != "true" ]]; then
               echo "| **Action** | ⏪ Rollback triggered |"
             fi
