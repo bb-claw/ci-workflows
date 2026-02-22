@@ -115,18 +115,12 @@ jobs:
             *)    echo "Unknown package manager: ${{ inputs.package-manager }}" && exit 1 ;;
           esac
 
-      - name: Run unit tests
-        run: |
-          CMD="${{ inputs.test-command }}"
-          if [[ -z "$CMD" ]]; then
-            # Default based on package manager
-            case "${{ inputs.package-manager }}" in
-              npm)  CMD="npm test" ;;
-              pnpm) CMD="pnpm test" ;;
-              yarn) CMD="yarn test" ;;
-            esac
-          fi
-          $CMD
+      - name: Run smoke tests (extensible)
+        uses: bb-claw/ci-workflows/.github/actions/smoke-test@v1
+        with:
+          test-command: ${{ inputs.test-command }}
+          test-script: "scripts/smoke.sh"
+          package-manager: ${{ inputs.package-manager }}
 
   # ── Docker build validation (PR only — push: false) ───────────────────────
   build-validate:
