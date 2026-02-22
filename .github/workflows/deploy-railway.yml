@@ -64,7 +64,7 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           echo "🚀 Triggering redeployment for service: ${{ inputs.service-id }}"
-          
+
           # Try redeploy with service flag
           railway redeploy \
             --service "${{ inputs.service-id }}" \
