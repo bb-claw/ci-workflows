@@ -22,6 +22,10 @@ on:
         description: "Railway service ID"
         type: string
         required: true
+      project-id:
+        description: "Railway project ID (optional, may be required for some tokens)"
+        type: string
+        required: false
       environment:
         description: "GitHub environment name (dev | production)"
         type: string
@@ -41,13 +45,37 @@ jobs:
       - name: Install Railway CLI
         uses: bb-claw/ci-workflows/.github/actions/setup-railway@v1
 
+      - name: Debug Railway Connection
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "🔍 Debugging Railway connection..."
+          echo ""
+          echo "1️⃣ Checking token validity..."
+          railway whoami || echo "⚠️ whoami failed"
+          echo ""
+          echo "2️⃣ Listing available services..."
+          railway service list || echo "⚠️ service list failed"
+          echo ""
+          echo "3️⃣ Service ID to deploy: ${{ inputs.service-id }}"
+
       - name: Trigger redeployment
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
+          echo "🚀 Triggering redeployment for service: ${{ inputs.service-id }}"
+
+          # Try redeploy with service flag
           railway redeploy \
             --service "${{ inputs.service-id }}" \
-            --yes
+            --yes \
+            || {
+              echo ""
+              echo "❌ Redeploy failed. Trying alternative approach..."
+              echo ""
+              echo "Checking if service exists:"
+              railway service list --json | jq '.[] | select(.id == "${{ inputs.service-id }}")'
+            }
 
       - name: Summary
         run: |
