@@ -1,0 +1,14 @@
+# actionlint configuration
+# https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+self-hosted-runner:
+  labels: []
+
+# Ignore shellcheck warnings that are false positives in GitHub Actions context:
+# - SC2086: Double quote to prevent globbing - ${{ }} expressions are pre-substituted by GitHub
+# - SC2129: Consider using { cmd1; cmd2; } >> file - style preference, not a bug
+paths:
+  .github/workflows/**/*.yml:
+    ignore:
+      - 'shellcheck reported issue in this script: SC2086:.+'
+      - 'shellcheck reported issue in this script: SC2129:.+'

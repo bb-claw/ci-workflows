@@ -31,7 +31,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run actionlint
-        run: actionlint -color
+        run: actionlint -color -config-file .github/actionlint.yaml
 
   # ── Shell script linting ───────────────────────────────────────────────────
   shellcheck:
@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract and check shell scripts from composite actions
+      - name: Run shellcheck on scripts
         run: |
           set -euo pipefail
           EXIT_CODE=0
@@ -62,6 +62,19 @@ jobs:
                 fi
               done
             done
+          fi
+
+          # Check any standalone shell scripts
+          shopt -s nullglob
+          scripts=(scripts/*.sh)
+          if [[ ${#scripts[@]} -gt 0 ]]; then
+            shellcheck "${scripts[@]}" || EXIT_CODE=1
+          else
+            echo "No standalone shell scripts found - skipping"
+          fi
+
+          if [[ $EXIT_CODE -eq 0 ]]; then
+            echo "✅ Shellcheck passed"
           fi
 
           exit $EXIT_CODE
@@ -116,6 +129,8 @@ jobs:
             "docs/onboarding.md"
             "docs/architecture.md"
             "docs/troubleshooting.md"
+            "docs/runbook.md"
+            "docs/customization.md"
           )
 
           for file in "${EXPECTED_FILES[@]}"; do

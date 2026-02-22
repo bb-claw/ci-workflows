@@ -1,4 +1,4 @@
-# bb-claw / ci-workflows
+# bb-claw / ci-workflows 
 
 Centralized CI/CD framework for all `bb-claw` GitHub repositories.
 
@@ -153,7 +153,9 @@ ci-workflows/
 ├── docs/
 │   ├── onboarding.md                # Step-by-step adoption guide
 │   ├── architecture.md              # Design decisions and rationale
-│   └── troubleshooting.md           # Common issues and fixes
+│   ├── troubleshooting.md           # Common issues and fixes
+│   ├── runbook.md                   # Incident response and recovery
+│   └── customization.md             # How to extend and customize pipelines
 ├── CHANGELOG.md
 └── CODEOWNERS
 ```

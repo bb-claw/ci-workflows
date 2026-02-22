@@ -47,9 +47,9 @@ on:
         type: string
         default: "/health"
       integration-test-command:
-        description: "Shell command to run integration tests"
+        description: "Shell command to run integration tests (leave empty for package-manager default)"
         type: string
-        default: "npm run test:integration"
+        default: ""
       unit-test-command:
         description: "Shell command to run unit tests inside the container"
         type: string
@@ -58,6 +58,10 @@ on:
         description: "Node.js version for integration test runner"
         type: string
         default: "22"
+      package-manager:
+        description: "Package manager to use: npm, pnpm, or yarn"
+        type: string
+        default: "npm"
     secrets:
       RAILWAY_TOKEN_DEV:
         required: true
@@ -125,6 +129,7 @@ jobs:
       api-base-url: ${{ inputs.dev-url }}
       test-command: ${{ inputs.integration-test-command }}
       node-version: ${{ inputs.node-version }}
+      package-manager: ${{ inputs.package-manager }}
     secrets: inherit
 
 # ── 6. APPROVAL — PRODUCTION (manual approval required) ────────────────────
