@@ -69,31 +69,72 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
+          set -e
+
           echo "🚀 Triggering redeployment for service: ${{ inputs.service-id }}"
+          echo ""
 
-          # Build redeploy command
-          CMD="railway redeploy --service '${{ inputs.service-id }}' --yes"
+          SERVICE_ID="${{ inputs.service-id }}"
+          PROJECT_ID="${{ inputs.project-id }}"
+          ENVIRONMENT_ID="${{ inputs.environment-id }}"
 
-          # Add project ID if provided
-          if [[ -n "${{ inputs.project-id }}" ]]; then
-            CMD="$CMD --project '${{ inputs.project-id }}'"
-            echo "  Using project: ${{ inputs.project-id }}"
+          # Step 1: If project ID provided, select it
+          if [[ -n "$PROJECT_ID" ]]; then
+            echo "📍 Selecting project: $PROJECT_ID"
+            railway project select "$PROJECT_ID" || {
+              echo "❌ Failed to select project"
+              exit 1
+            }
           fi
 
-          # Add environment ID if provided
-          if [[ -n "${{ inputs.environment-id }}" ]]; then
-            CMD="$CMD --environment '${{ inputs.environment-id }}'"
-            echo "  Using environment: ${{ inputs.environment-id }}"
+          # Step 2: If environment ID provided, select it
+          if [[ -n "$ENVIRONMENT_ID" ]]; then
+            echo "📍 Selecting environment: $ENVIRONMENT_ID"
+            railway environment select "$ENVIRONMENT_ID" || {
+              echo "❌ Failed to select environment"
+              exit 1
+            }
           fi
 
-          # Try redeploy
-          eval "$CMD" || {
+          # Step 3: Trigger redeploy with only service ID and yes flag
+          echo "▶️ Executing: railway redeploy --service $SERVICE_ID --yes"
+          railway redeploy --service "$SERVICE_ID" --yes || {
             echo ""
-            echo "❌ Redeploy failed. Trying alternative approach..."
+            echo "❌ Redeploy command failed"
             echo ""
-            echo "Checking if service exists:"
-            railway service list --json | jq '.[] | select(.id == "${{ inputs.service-id }}")'
+            echo "Debugging: Checking if service exists..."
+            railway service list --json | jq '.[] | select(.id == "'$SERVICE_ID'")'
+            exit 1
           }
+
+          echo ""
+          echo "✅ Redeploy command executed successfully"
+
+      - name: Wait for deployment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "⏳ Waiting for deployment to start..."
+
+          SERVICE_ID="${{ inputs.service-id }}"
+          MAX_WAIT=30
+          POLL_INTERVAL=2
+
+          for i in $(seq 1 $((MAX_WAIT / POLL_INTERVAL))); do
+            STATUS=$(railway service list --json 2>/dev/null | \
+              jq -r ".[] | select(.id == \"$SERVICE_ID\") | .status" 2>/dev/null || echo "unknown")
+
+            echo "[$i/$((MAX_WAIT / POLL_INTERVAL))] Status: $STATUS"
+
+            if [[ "$STATUS" == "BUILDING" || "$STATUS" == "DEPLOYING" || "$STATUS" == "CRASHED" ]]; then
+              echo "✅ Deployment detected — service is $STATUS"
+              exit 0
+            fi
+
+            sleep $POLL_INTERVAL
+          done
+
+          echo "⚠️ Could not detect deployment status (may be queued)"
 
       - name: Summary
         run: |
