@@ -51,9 +51,11 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## Railway Deployment" >> $GITHUB_STEP_SUMMARY
-          echo "| | |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Environment** | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Service ID** | \`${{ inputs.service-id }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | ✅ Redeployment triggered |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Railway Deployment"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Environment** | \`${{ inputs.environment }}\` |"
+            echo "| **Service ID** | \`${{ inputs.service-id }}\` |"
+            echo "| **Status** | ✅ Redeployment triggered |"
+          } >> "$GITHUB_STEP_SUMMARY"
