@@ -78,6 +78,7 @@ jobs:
           fi
 
           # Find latest deployment
+          echo ""
           echo "-> Find latest deployment ..."
           RESPONSE=$(curl -sf https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
@@ -101,7 +102,16 @@ jobs:
           echo "📦 Latest deployment: $DEPLOYMENT_ID"
 
           # Trigger redeploy
+          echo ""
           echo "-> Trigger redeploy ..."
+          RESULT=$(curl -sf https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "mutation { deploymentRedeploy(id: \"'"${DEPLOYMENT_ID}"'\") { id status } }"
+            }')
+          echo "RESULT: $RESULT"
+
           RESULT=$(curl -sf https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
             -H "Content-Type: application/json" \
