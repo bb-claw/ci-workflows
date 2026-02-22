@@ -108,9 +108,7 @@ jobs:
     uses: bb-claw/ci-workflows/.github/workflows/docker-build-push.yml@v1
     with:
       dockerfile: ${{ inputs.dockerfile }}
-    permissions:
-      contents: read
-      packages: write
+    # Note: permissions are set inside docker-build-push.yml (cannot override in caller)
 
 # ── 2. UNIT TEST (inside built container) ────────────────────────────────────
   unit-test:
