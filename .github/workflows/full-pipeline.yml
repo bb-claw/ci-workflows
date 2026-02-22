@@ -38,6 +38,16 @@ on:
         description: "Railway service ID for the production environment"
         type: string
         required: true
+      railway-project-id-dev:
+        description: "Railway project ID for dev (optional, may be required for some tokens)"
+        type: string
+        required: false
+        default: ""
+      railway-project-id-prod:
+        description: "Railway project ID for prod (optional, may be required for some tokens)"
+        type: string
+        required: false
+        default: ""
       dockerfile:
         description: "Path to Dockerfile relative to repo root"
         type: string
@@ -109,6 +119,7 @@ jobs:
     uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@v1
     with:
       service-id: ${{ inputs.railway-service-id-dev }}
+      project-id: ${{ inputs.railway-project-id-dev }}
       environment: dev
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
@@ -146,6 +157,7 @@ jobs:
     uses: bb-claw/ci-workflows/.github/workflows/deploy-railway.yml@v1
     with:
       service-id: ${{ inputs.railway-service-id-prod }}
+      project-id: ${{ inputs.railway-project-id-prod }}
       environment: production
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
