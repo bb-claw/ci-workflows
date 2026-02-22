@@ -1,4 +1,7 @@
-# bb-claw / ci-workflows 
+# bb-claw / ci-workflows
+
+[![CI](https://github.com/bb-claw/ci-workflows/actions/workflows/ci.yml/badge.svg)](https://github.com/bb-claw/ci-workflows/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Centralized CI/CD framework for all `bb-claw` GitHub repositories.
 
@@ -210,4 +213,4 @@ Since changes here affect every service repo, follow this checklist before mergi
 
 ## License
 
-Internal use only — `bb-claw` organisation.
+MIT — see [LICENSE](LICENSE).
