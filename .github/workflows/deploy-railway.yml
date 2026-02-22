@@ -112,12 +112,6 @@ jobs:
             }')
           echo "RESULT: $RESULT"
 
-          RESULT=$(curl -sf https://backboard.railway.com/graphql/v2 \
-            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n --arg id "$DEPLOYMENT_ID" '{"query": "mutation { deploymentRedeploy(id: \($id)) { id status } }"}')")
-          echo "RESULT: $RESULT"
-
           STATUS=$(echo "$RESULT" | jq -r '.data.deploymentRedeploy.status // empty')
 
           if [[ -z "$STATUS" ]]; then
