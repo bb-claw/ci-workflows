@@ -52,10 +52,27 @@ jobs:
       - name: Validate Railway Token & Service Access
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          PIPELINE_DEBUG: ${{ vars.PIPELINE_DEBUG || '0' }}
         run: |
           set -e
 
           SERVICE_ID="${{ inputs.service-id }}"
+
+          # Debug output if PIPELINE_DEBUG is set to 1
+          if [[ "${PIPELINE_DEBUG}" == "1" ]]; then
+            echo "🐛 DEBUG MODE ENABLED"
+            echo ""
+            echo "Environment Variables:"
+            echo "  RAILWAY_TOKEN: ${RAILWAY_TOKEN:0:20}...${RAILWAY_TOKEN: -10}"
+            echo "  SERVICE_ID: $SERVICE_ID"
+            echo "  PROJECT_ID: ${{ inputs.project-id || '(not provided)' }}"
+            echo "  ENVIRONMENT_ID: ${{ inputs.environment-id || '(not provided)' }}"
+            echo "  GITHUB_ENVIRONMENT: ${{ inputs.environment || '(not set)' }}"
+            echo ""
+            echo "Railway CLI Version:"
+            railway --version || echo "  (railway cli not installed)"
+            echo ""
+          fi
 
           echo "🔍 Validating Railway token and service access..."
           echo ""
@@ -66,10 +83,27 @@ jobs:
             echo "❌ TOKEN INVALID: railway whoami failed"
             echo "Error: $WHOAMI_OUTPUT"
             echo ""
+
+            if [[ "${PIPELINE_DEBUG}" == "1" ]]; then
+              echo "🐛 DEBUG: Full error output:"
+              echo "  $WHOAMI_OUTPUT"
+              echo ""
+              echo "🐛 DEBUG: Token details:"
+              echo "  Token length: ${#RAILWAY_TOKEN}"
+              echo "  Token prefix: ${RAILWAY_TOKEN:0:10}..."
+              echo "  Token suffix: ...${RAILWAY_TOKEN: -10}"
+              echo ""
+            fi
+
             echo "⚠️ RAILWAY_TOKEN is either:"
             echo "  - Expired (regenerate in Railway dashboard)"
             echo "  - Invalid format"
             echo "  - Missing from GitHub Secrets"
+            echo ""
+            echo "🔧 To enable debug output:"
+            echo "  1. Set GitHub Variable: PIPELINE_DEBUG=1"
+            echo "  2. Push to main to trigger pipeline"
+            echo "  3. Check logs for full environment details"
             exit 1
           fi
           echo "✅ Token is valid"
