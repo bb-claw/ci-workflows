@@ -108,6 +108,9 @@ jobs:
     uses: bb-claw/ci-workflows/.github/workflows/docker-build-push.yml@v1
     with:
       dockerfile: ${{ inputs.dockerfile }}
+      build-args: |
+        GIT_SHA=${{ github.sha }}
+        BUILD_DATE=${{ github.event.head_commit.timestamp }}
     # Note: permissions are set inside docker-build-push.yml (cannot override in caller)
 
 # ── 2. UNIT TEST (inside built container) ────────────────────────────────────
