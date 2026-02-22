@@ -49,21 +49,71 @@ jobs:
       - name: Install Railway CLI
         uses: bb-claw/ci-workflows/.github/actions/setup-railway@v1
 
-      - name: Debug Railway Connection
+      - name: Validate Railway Token & Service Access
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          echo "🔍 Debugging Railway connection..."
+          set -e
+          
+          SERVICE_ID="${{ inputs.service-id }}"
+          
+          echo "🔍 Validating Railway token and service access..."
           echo ""
-          echo "1️⃣ Checking token validity..."
-          railway whoami || echo "⚠️ whoami failed"
+          
+          # Step 1: Verify token is valid
+          echo "1️⃣ Checking token validity with 'railway whoami'..."
+          if ! WHOAMI_OUTPUT=$(railway whoami 2>&1); then
+            echo "❌ TOKEN INVALID: railway whoami failed"
+            echo "Error: $WHOAMI_OUTPUT"
+            echo ""
+            echo "⚠️ RAILWAY_TOKEN is either:"
+            echo "  - Expired (regenerate in Railway dashboard)"
+            echo "  - Invalid format"
+            echo "  - Missing from GitHub Secrets"
+            exit 1
+          fi
+          echo "✅ Token is valid"
+          echo "User: $WHOAMI_OUTPUT"
           echo ""
+          
+          # Step 2: List available services
           echo "2️⃣ Listing available services..."
-          railway service list || echo "⚠️ service list failed"
+          if ! SERVICE_LIST=$(railway service list --json 2>&1); then
+            echo "❌ SERVICE LIST FAILED: Cannot list services"
+            echo "Error: $SERVICE_LIST"
+            exit 1
+          fi
+          echo "✅ Services found"
           echo ""
-          echo "3️⃣ Service ID to deploy: ${{ inputs.service-id }}"
-          echo "4️⃣ Project ID: ${{ inputs.project-id || '(not provided)' }}"
-          echo "5️⃣ Environment ID: ${{ inputs.environment-id || '(not provided)' }}"
+          
+          # Step 3: Check if target service exists
+          echo "3️⃣ Checking if service $SERVICE_ID exists..."
+          if echo "$SERVICE_LIST" | jq -e ".[] | select(.id == \"$SERVICE_ID\")" > /dev/null 2>&1; then
+            echo "✅ Service found and accessible"
+            SERVICE_INFO=$(echo "$SERVICE_LIST" | jq ".[] | select(.id == \"$SERVICE_ID\")")
+            echo "Service info:"
+            echo "$SERVICE_INFO" | jq '.'
+          else
+            echo "❌ SERVICE NOT FOUND OR NOT ACCESSIBLE"
+            echo "Service ID: $SERVICE_ID"
+            echo "Available services:"
+            echo "$SERVICE_LIST" | jq '.[] | {id: .id, name: .name, status: .status}'
+            echo ""
+            echo "⚠️ POSSIBLE CAUSES:"
+            echo "  - Service ID is wrong"
+            echo "  - Token doesn't have access to this service"
+            echo "  - Service exists in different project/environment"
+            exit 1
+          fi
+          echo ""
+          
+          # Step 4: Show context
+          echo "4️⃣ Deployment context:"
+          echo "  Service ID: $SERVICE_ID"
+          [[ -n "${{ inputs.project-id }}" ]] && echo "  Project ID: ${{ inputs.project-id }}"
+          [[ -n "${{ inputs.environment-id }}" ]] && echo "  Environment ID: ${{ inputs.environment-id }}"
+          echo ""
+          echo "✅ All validation checks passed. Ready to redeploy."
 
       - name: Trigger redeployment
         env:
@@ -88,14 +138,28 @@ jobs:
           # Note: railway redeploy only accepts --service and --yes
           # Project/environment context is handled by RAILWAY_TOKEN scope
           echo "▶️ Executing: railway redeploy --service \"$SERVICE_ID\" --yes"
-          railway redeploy --service "$SERVICE_ID" --yes || {
+          if ! REDEPLOY_OUTPUT=$(railway redeploy --service "$SERVICE_ID" --yes 2>&1); then
             echo ""
             echo "❌ Redeploy command failed"
+            echo "Error output:"
+            echo "$REDEPLOY_OUTPUT"
             echo ""
-            echo "Debugging: Checking if service exists..."
-            railway service list --json | jq '.[] | select(.id == "'$SERVICE_ID'")'
+            echo "⚠️ COMMON CAUSES:"
+            if echo "$REDEPLOY_OUTPUT" | grep -q "Invalid RAILWAY_TOKEN"; then
+              echo "  - RAILWAY_TOKEN is invalid or expired"
+              echo "  - Token doesn't have access to this project/environment"
+              echo "  - Action: Regenerate token in Railway dashboard"
+            elif echo "$REDEPLOY_OUTPUT" | grep -q "not found"; then
+              echo "  - Service ID is incorrect"
+              echo "  - Service doesn't exist in this project/environment"
+            else
+              echo "  - Unknown error (see output above)"
+            fi
             exit 1
-          }
+          fi
+          echo ""
+          echo "Redeploy output:"
+          echo "$REDEPLOY_OUTPUT"
 
           echo ""
           echo "✅ Redeploy command executed successfully"
