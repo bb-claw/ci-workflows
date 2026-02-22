@@ -54,12 +54,12 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           set -e
-          
+
           SERVICE_ID="${{ inputs.service-id }}"
-          
+
           echo "🔍 Validating Railway token and service access..."
           echo ""
-          
+
           # Step 1: Verify token is valid
           echo "1️⃣ Checking token validity with 'railway whoami'..."
           if ! WHOAMI_OUTPUT=$(railway whoami 2>&1); then
@@ -75,7 +75,7 @@ jobs:
           echo "✅ Token is valid"
           echo "User: $WHOAMI_OUTPUT"
           echo ""
-          
+
           # Step 2: List available services
           echo "2️⃣ Listing available services..."
           if ! SERVICE_LIST=$(railway service list --json 2>&1); then
@@ -85,7 +85,7 @@ jobs:
           fi
           echo "✅ Services found"
           echo ""
-          
+
           # Step 3: Check if target service exists
           echo "3️⃣ Checking if service $SERVICE_ID exists..."
           if echo "$SERVICE_LIST" | jq -e ".[] | select(.id == \"$SERVICE_ID\")" > /dev/null 2>&1; then
@@ -106,7 +106,7 @@ jobs:
             exit 1
           fi
           echo ""
-          
+
           # Step 4: Show context
           echo "4️⃣ Deployment context:"
           echo "  Service ID: $SERVICE_ID"
