@@ -1,4 +1,7 @@
-# bb-claw / ci-workflows 
+# bb-claw / ci-workflows
+
+[![CI](https://github.com/bb-claw/ci-workflows/actions/workflows/ci.yml/badge.svg)](https://github.com/bb-claw/ci-workflows/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-internal-lightgrey)](#license)
 
 Centralized CI/CD framework for all `bb-claw` GitHub repositories.
 
