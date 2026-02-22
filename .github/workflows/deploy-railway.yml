@@ -26,6 +26,10 @@ on:
         description: "Railway project ID (optional, may be required for some tokens)"
         type: string
         required: false
+      environment-id:
+        description: "Railway environment ID (optional, may be required for some tokens)"
+        type: string
+        required: false
       environment:
         description: "GitHub environment name (dev | production)"
         type: string
@@ -58,6 +62,8 @@ jobs:
           railway service list || echo "⚠️ service list failed"
           echo ""
           echo "3️⃣ Service ID to deploy: ${{ inputs.service-id }}"
+          echo "4️⃣ Project ID: ${{ inputs.project-id || '(not provided)' }}"
+          echo "5️⃣ Environment ID: ${{ inputs.environment-id || '(not provided)' }}"
 
       - name: Trigger redeployment
         env:
@@ -65,17 +71,29 @@ jobs:
         run: |
           echo "🚀 Triggering redeployment for service: ${{ inputs.service-id }}"
 
-          # Try redeploy with service flag
-          railway redeploy \
-            --service "${{ inputs.service-id }}" \
-            --yes \
-            || {
-              echo ""
-              echo "❌ Redeploy failed. Trying alternative approach..."
-              echo ""
-              echo "Checking if service exists:"
-              railway service list --json | jq '.[] | select(.id == "${{ inputs.service-id }}")'
-            }
+          # Build redeploy command
+          CMD="railway redeploy --service '${{ inputs.service-id }}' --yes"
+
+          # Add project ID if provided
+          if [[ -n "${{ inputs.project-id }}" ]]; then
+            CMD="$CMD --project '${{ inputs.project-id }}'"
+            echo "  Using project: ${{ inputs.project-id }}"
+          fi
+
+          # Add environment ID if provided
+          if [[ -n "${{ inputs.environment-id }}" ]]; then
+            CMD="$CMD --environment '${{ inputs.environment-id }}'"
+            echo "  Using environment: ${{ inputs.environment-id }}"
+          fi
+
+          # Try redeploy
+          eval "$CMD" || {
+            echo ""
+            echo "❌ Redeploy failed. Trying alternative approach..."
+            echo ""
+            echo "Checking if service exists:"
+            railway service list --json | jq '.[] | select(.id == "${{ inputs.service-id }}")'
+          }
 
       - name: Summary
         run: |
@@ -85,5 +103,11 @@ jobs:
             echo "|---|---|"
             echo "| **Environment** | \`${{ inputs.environment }}\` |"
             echo "| **Service ID** | \`${{ inputs.service-id }}\` |"
+            if [[ -n "${{ inputs.project-id }}" ]]; then
+              echo "| **Project ID** | \`${{ inputs.project-id }}\` |"
+            fi
+            if [[ -n "${{ inputs.environment-id }}" ]]; then
+              echo "| **Environment ID** | \`${{ inputs.environment-id }}\` |"
+            fi
             echo "| **Status** | ✅ Redeployment triggered |"
           } >> "$GITHUB_STEP_SUMMARY"
